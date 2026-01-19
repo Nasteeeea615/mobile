@@ -5,8 +5,7 @@ import { useTheme } from 'react-native-paper';
 import { AppTheme } from '../theme/theme';
 
 // Auth screens
-import PhoneInputScreen from '../screens/PhoneInputScreen';
-import SMSVerificationScreen from '../screens/SMSVerificationScreen';
+import EmailInputScreen from '../screens/EmailInputScreen';
 import RegistrationScreen from '../screens/RegistrationScreen';
 import ExecutorRegistrationScreen from '../screens/ExecutorRegistrationScreen';
 
@@ -20,6 +19,8 @@ import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import TicketHistoryScreen from '../screens/TicketHistoryScreen';
 import TicketDetailsScreen from '../screens/TicketDetailsScreen';
+import ExecutorBalanceScreen from '../screens/ExecutorBalanceScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -39,7 +40,7 @@ export default function AppNavigator() {
       }}
     >
       <Stack.Navigator
-        initialRouteName="PhoneInput"
+        initialRouteName="EmailInput"
         screenOptions={{
           headerShown: true,
           animation: 'slide_from_right',
@@ -58,14 +59,9 @@ export default function AppNavigator() {
       >
         {/* Auth Flow */}
         <Stack.Screen
-          name="PhoneInput"
-          component={PhoneInputScreen}
+          name="EmailInput"
+          component={EmailInputScreen}
           options={{ title: 'Вход', headerShown: false }}
-        />
-        <Stack.Screen
-          name="SMSVerification"
-          component={SMSVerificationScreen}
-          options={{ title: 'Подтверждение' }}
         />
         <Stack.Screen
           name="Registration"
@@ -117,6 +113,16 @@ export default function AppNavigator() {
           name="TicketDetails"
           component={TicketDetailsScreen}
           options={{ title: 'Обращение' }}
+        />
+        <Stack.Screen
+          name="ExecutorBalance"
+          component={ExecutorBalanceScreen}
+          options={{ title: 'Баланс' }}
+        />
+        <Stack.Screen
+          name="EditProfile"
+          component={EditProfileScreen}
+          options={{ title: 'Редактирование профиля' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

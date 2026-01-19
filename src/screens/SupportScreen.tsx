@@ -88,15 +88,6 @@ const SupportScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text variant="headlineMedium" style={[styles.title, { color: theme.custom.text }]}>
-            Служба поддержки
-          </Text>
-          <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.custom.textSecondary }]}>
-            Опишите вашу проблему, и мы поможем вам решить её
-          </Text>
-        </View>
-
         <View style={styles.form}>
           <CustomInput
             label="Тема обращения"
@@ -172,14 +163,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
   },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  title: {
-    fontWeight: 'bold',
-    marginBottom: spacing.sm,
-  },
-  subtitle: {},
   form: {
     marginBottom: spacing.lg,
   },

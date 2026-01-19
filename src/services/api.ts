@@ -1,9 +1,10 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import { APIResponse, APIError } from '../types';
 import { getAuthToken, saveAuthToken, deleteAuthToken } from '../utils/secureStorage';
-import mockApi, { MOCK_MODE } from './mockApi';
+import mockApi, { MOCK_MODE, MOCK_AUTH } from './mockApi';
+import { ENV } from '../config/env';
 
-const API_URL = process.env.API_URL || 'http://localhost:3000/api';
+const API_URL = ENV.API_URL;
 
 // Типы ошибок для лучшей обработки
 export enum ErrorType {
@@ -205,7 +206,7 @@ class ApiService {
    * Сохраняет токен в Secure Storage
    */
   public async setToken(token: string): Promise<void> {
-    if (MOCK_MODE) {
+    if (MOCK_MODE || MOCK_AUTH) {
       await mockApi.setToken(token);
       return;
     }
@@ -220,7 +221,7 @@ class ApiService {
    * Удаляет токен из Secure Storage
    */
   public async clearToken(): Promise<void> {
-    if (MOCK_MODE) {
+    if (MOCK_MODE || MOCK_AUTH) {
       await mockApi.clearToken();
       return;
     }
@@ -241,6 +242,11 @@ class ApiService {
   }
 
   async post<T>(url: string, data?: any): Promise<APIResponse<T>> {
+    // Используем мок для аутентификации (SMS)
+    if (MOCK_AUTH && (url === '/auth/send-sms' || url === '/auth/verify-sms')) {
+      return mockApi.post<T>(url, data);
+    }
+    
     if (MOCK_MODE) {
       return mockApi.post<T>(url, data);
     }

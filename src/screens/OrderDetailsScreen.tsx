@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, ActivityIndicator, Divider, useTheme } from 'react-native-paper';
-import { useRoute } from '@react-navigation/native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text, Card, ActivityIndicator, Divider, useTheme, Chip } from 'react-native-paper';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import apiService from '../services/api';
+import CustomButton from '../components/CustomButton';
+import CustomCard from '../components/CustomCard';
 import { AppTheme, spacing, containerShadows } from '../theme';
 
 export default function OrderDetailsScreen() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [error, setError] = useState('');
 
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
   const theme = useTheme<AppTheme>();
   const orderId = route.params?.orderId;
 
@@ -44,17 +48,67 @@ export default function OrderDetailsScreen() {
     switch (status) {
       case 'pending':
         return 'Ожидает назначения';
-      case 'assigned':
-        return 'Назначен исполнитель';
+      case 'accepted':
+        return 'Принят исполнителем';
       case 'in_progress':
         return 'В работе';
       case 'completed':
         return 'Выполнен';
+      case 'awaiting_payment':
+        return 'Ожидает оплаты';
+      case 'paid':
+        return 'Оплачен';
       case 'cancelled':
         return 'Отменен';
       default:
         return status;
     }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return '#FFA500'; // Orange
+      case 'accepted':
+        return '#2196F3'; // Blue
+      case 'in_progress':
+        return '#2196F3'; // Blue
+      case 'completed':
+        return '#4CAF50'; // Green
+      case 'awaiting_payment':
+        return '#FF9800'; // Amber
+      case 'paid':
+        return '#4CAF50'; // Green
+      case 'cancelled':
+        return '#F44336'; // Red
+      default:
+        return theme.custom.textSecondary;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'clock-outline';
+      case 'accepted':
+        return 'check-circle-outline';
+      case 'in_progress':
+        return 'truck-fast';
+      case 'completed':
+        return 'check-circle';
+      case 'awaiting_payment':
+        return 'credit-card-clock-outline';
+      case 'paid':
+        return 'check-all';
+      case 'cancelled':
+        return 'close-circle';
+      default:
+        return 'information';
+    }
+  };
+
+  const handlePayment = () => {
+    navigation.navigate('Payment', { orderId: order.id });
   };
 
   if (loading) {
@@ -75,112 +129,125 @@ export default function OrderDetailsScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.custom.background }]}>
-      <Card style={[styles.card, { backgroundColor: theme.custom.surface }, containerShadows.card]}>
-        <Card.Content>
-          <Text variant="headlineSmall" style={[styles.title, { color: theme.custom.text }]}>
-            Заказ #{order.id.slice(0, 8)}
+      <View style={styles.content}>
+        {/* Price Card */}
+        <View style={[styles.priceCard, { backgroundColor: theme.colors.primaryContainer }]}>
+          <Text variant="labelLarge" style={[styles.priceLabel, { color: theme.colors.primary }]}>
+            Стоимость
           </Text>
-
-          <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-              Статус
+          <View style={styles.priceRow}>
+            <Text variant="displayMedium" style={[styles.priceAmount, { color: theme.colors.primary }]}>
+              {order.price}
             </Text>
-            <Text variant="bodyLarge" style={{ color: theme.custom.text }}>
-              {getStatusText(order.status)}
+            <Text variant="headlineMedium" style={[styles.priceCurrency, { color: theme.colors.primary }]}>
+              ₽
             </Text>
           </View>
-
-          <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-              Адрес
-            </Text>
-            <Text variant="bodyLarge" style={{ color: theme.custom.text }}>
-              {order.city}, {order.street}, {order.house_number}
-            </Text>
-          </View>
-
-          <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-              Дата и время
-            </Text>
-            <Text variant="bodyLarge" style={{ color: theme.custom.text }}>
-              {formatDate(order.scheduled_date)} в {order.scheduled_time}
-            </Text>
-          </View>
-
-          <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-              Объем машины
-            </Text>
-            <Text variant="bodyLarge" style={{ color: theme.custom.text }}>
-              {order.vehicle_capacity} м³
-            </Text>
-          </View>
-
-          <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-              Стоимость
-            </Text>
-            <Text variant="headlineSmall" style={[styles.price, { color: theme.custom.text }]}>
-              {order.price} ₽
-            </Text>
-          </View>
-
-          {order.comment && (
-            <>
-              <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-              <View style={styles.section}>
-                <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-                  Комментарий
-                </Text>
-                <Text variant="bodyMedium" style={{ color: theme.custom.text }}>
-                  {order.comment}
-                </Text>
-              </View>
-            </>
+          {order.payment_status === 'paid' && (
+            <View style={styles.paidBadge}>
+              <Text variant="bodyMedium" style={[styles.paidText, { color: '#4CAF50' }]}>
+                ✓ Оплачено
+              </Text>
+            </View>
           )}
+        </View>
 
-          {order.executor && (
-            <>
-              <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
-              <View style={styles.section}>
-                <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
-                  Исполнитель
-                </Text>
-                <Text variant="bodyLarge" style={{ color: theme.custom.text }}>
-                  {order.executor.name}
-                </Text>
-                <Text variant="bodyMedium" style={[styles.phone, { color: theme.custom.textSecondary }]}>
-                  {order.executor.phone_number}
-                </Text>
-              </View>
-            </>
-          )}
+        {/* Address Card */}
+        <CustomCard style={styles.infoCard}>
+          <Text variant="labelLarge" style={[styles.cardLabel, { color: theme.custom.textSecondary }]}>
+            Адрес
+          </Text>
+          <Text variant="bodyLarge" style={[styles.cardContent, { color: theme.custom.text }]}>
+            {order.address?.city || order.city}, {order.address?.street || order.street}, {order.address?.houseNumber || order.house_number}
+          </Text>
+        </CustomCard>
 
-          <Divider style={[styles.divider, { backgroundColor: theme.custom.divider }]} />
+        {/* Date & Time Card */}
+        <CustomCard style={styles.infoCard}>
+          <Text variant="labelLarge" style={[styles.cardLabel, { color: theme.custom.textSecondary }]}>
+            Дата и время
+          </Text>
+          <Text variant="bodyLarge" style={[styles.cardContent, { color: theme.custom.text }]}>
+            {formatDate(order.scheduled_date)} в {order.scheduled_time}
+          </Text>
+        </CustomCard>
 
-          <View style={styles.section}>
-            <Text variant="bodySmall" style={[styles.timestamp, { color: theme.custom.textSecondary }]}>
-              Создан: {new Date(order.created_at).toLocaleString('ru-RU')}
+        {/* Vehicle Capacity Card */}
+        <CustomCard style={styles.infoCard}>
+          <Text variant="labelLarge" style={[styles.cardLabel, { color: theme.custom.textSecondary }]}>
+            Объем машины
+          </Text>
+          <Text variant="bodyLarge" style={[styles.cardContent, { color: theme.custom.text }]}>
+            {order.vehicle_capacity} м³
+          </Text>
+        </CustomCard>
+
+        {/* Comment Card */}
+        {order.comment && (
+          <CustomCard style={styles.infoCard}>
+            <Text variant="labelLarge" style={[styles.cardLabel, { color: theme.custom.textSecondary }]}>
+              Комментарий
             </Text>
-            {order.completed_at && (
-              <Text variant="bodySmall" style={[styles.timestamp, { color: theme.custom.textSecondary }]}>
-                Выполнен: {new Date(order.completed_at).toLocaleString('ru-RU')}
+            <Text variant="bodyMedium" style={[styles.cardContent, { color: theme.custom.text }]}>
+              {order.comment}
+            </Text>
+          </CustomCard>
+        )}
+
+        {/* Executor Card */}
+        {(order.executor_name || order.executor) && (
+          <CustomCard style={styles.infoCard}>
+            <Text variant="labelLarge" style={[styles.cardLabel, { color: theme.custom.textSecondary }]}>
+              Исполнитель
+            </Text>
+            <Text variant="bodyLarge" style={[styles.cardContent, { color: theme.custom.text }]}>
+              {order.executor_name || order.executor?.name}
+            </Text>
+            {(order.executor_phone || order.executor?.phone_number) && (
+              <Text variant="bodyMedium" style={[styles.cardSubContent, { color: theme.custom.textSecondary }]}>
+                Телефон: {order.executor_phone || order.executor?.phone_number}
               </Text>
             )}
-          </View>
-        </Card.Content>
-      </Card>
+            {order.vehicle_number && (
+              <Text variant="bodyMedium" style={[styles.cardSubContent, { color: theme.custom.textSecondary }]}>
+                Номер машины: {order.vehicle_number}
+              </Text>
+            )}
+          </CustomCard>
+        )}
+
+        {/* Timestamps */}
+        <View style={[styles.timestampCard, { backgroundColor: theme.custom.surface }]}>
+          <Text variant="bodySmall" style={[styles.timestampText, { color: theme.custom.textSecondary }]}>
+            Создан: {new Date(order.created_at || order.createdAt).toLocaleString('ru-RU')}
+          </Text>
+          {order.completed_at && (
+            <Text variant="bodySmall" style={[styles.timestampText, { color: theme.custom.textSecondary }]}>
+              Выполнен: {new Date(order.completed_at).toLocaleString('ru-RU')}
+            </Text>
+          )}
+          {order.paid_at && (
+            <Text variant="bodySmall" style={[styles.timestampText, { color: theme.custom.textSecondary }]}>
+              Оплачен: {new Date(order.paid_at).toLocaleString('ru-RU')}
+            </Text>
+          )}
+        </View>
+
+        {/* Payment Button */}
+        {(order.status === 'in_progress' || order.status === 'awaiting_payment' || order.status === 'completed') && 
+         order.payment_status !== 'paid' && (
+          <CustomButton
+            mode="contained"
+            variant="primary"
+            onPress={handlePayment}
+            loading={paymentLoading}
+            disabled={paymentLoading}
+            style={styles.paymentButton}
+          >
+            Оплатить заказ
+          </CustomButton>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -189,37 +256,72 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  content: {
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
-  card: {
-    margin: spacing.md,
-    borderRadius: 8,
-  },
-  title: {
+  priceCard: {
+    padding: spacing.lg,
     marginBottom: spacing.md,
-    fontWeight: 'bold',
+    alignItems: 'center',
+    borderRadius: 12,
+    ...containerShadows.card,
   },
-  section: {
-    marginVertical: spacing.md,
-  },
-  sectionTitle: {
+  priceLabel: {
     marginBottom: spacing.xs,
+    fontWeight: '600',
   },
-  divider: {
-    marginVertical: spacing.md,
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
   },
-  price: {
-    fontWeight: 'bold',
+  priceAmount: {
+    fontWeight: '700',
   },
-  phone: {
+  priceCurrency: {
+    fontWeight: '700',
+    marginLeft: spacing.xs,
+  },
+  paidBadge: {
+    marginTop: spacing.sm,
+  },
+  paidText: {
+    fontWeight: '600',
+  },
+  infoCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  cardLabel: {
+    marginBottom: spacing.xs,
+    fontWeight: '600',
+  },
+  cardContent: {
+    lineHeight: 24,
+  },
+  cardSubContent: {
     marginTop: spacing.xs,
+    lineHeight: 20,
   },
-  timestamp: {
-    marginTop: spacing.xs,
+  timestampCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: 8,
+    ...containerShadows.card,
+  },
+  timestampText: {
+    marginBottom: spacing.xs,
+    lineHeight: 18,
+  },
+  paymentButton: {
+    marginTop: spacing.md,
   },
   error: {
     textAlign: 'center',

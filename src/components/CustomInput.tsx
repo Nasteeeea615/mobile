@@ -110,7 +110,8 @@ export default function CustomInput({
         left={left}
         right={right}
         autoCapitalize={autoCapitalize}
-        autoComplete={autoComplete}
+        autoComplete="off"
+        textContentType="none"
         onFocus={() => setIsFocused(true)}
         onBlur={handleBlur}
         onSubmitEditing={onSubmitEditing}
@@ -120,14 +121,15 @@ export default function CustomInput({
           styles.input,
           {
             backgroundColor: backgroundColor,
-            minHeight: 60, // Increased from 56 to 60px for better touch targets
+            minHeight: 60,
           },
           style,
         ]}
         contentStyle={[
           {
             fontSize: theme.typography.fontSizes.md,
-            paddingTop: 8, // Add padding to prevent label overlap
+            paddingTop: 8,
+            backgroundColor: backgroundColor,
           },
           contentStyle,
         ]}
@@ -135,14 +137,21 @@ export default function CustomInput({
           styles.outline,
           {
             borderColor: borderColor,
-            borderWidth: isFocused ? 2 : 1, // Thicker border when focused
+            borderWidth: isFocused ? 2 : 1,
+            backgroundColor: backgroundColor,
           },
         ]}
+        underlineStyle={{
+          backgroundColor: backgroundColor,
+        }}
         theme={{
           colors: {
             ...theme.colors,
-            onSurfaceVariant: labelColor, // Label color
-            primary: theme.custom.inputLabelFocused, // Focused label color
+            onSurfaceVariant: labelColor,
+            primary: theme.custom.inputLabelFocused,
+            background: backgroundColor,
+            surface: backgroundColor,
+            surfaceVariant: backgroundColor,
           },
           animation: {
             scale: 1.0,

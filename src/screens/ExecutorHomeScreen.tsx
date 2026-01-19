@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl, AppState, Alert } from 'react-native';
 import { Text, ActivityIndicator, FAB, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
@@ -8,6 +8,7 @@ import CustomButton from '../components/CustomButton';
 import apiService from '../services/api';
 import { Order } from '../types';
 import { AppTheme, spacing, containerShadows } from '../theme';
+import { InactivityTimer } from '../utils/inactivityTimer';
 
 export default function ExecutorHomeScreen() {
   const [isWorking, setIsWorking] = useState(false);
@@ -17,22 +18,84 @@ export default function ExecutorHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showStartWorkModal, setShowStartWorkModal] = useState(false);
+  const [showStopWorkModal, setShowStopWorkModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const navigation = useNavigation<any>();
   const theme = useTheme<AppTheme>();
+  const inactivityTimerRef = useRef<InactivityTimer | null>(null);
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
     fetchActiveOrder();
+
+    // Setup app state listener for inactivity tracking
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        // App has come to the foreground - reset timer
+        if (isWorking && inactivityTimerRef.current) {
+          inactivityTimerRef.current.reset();
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+      if (inactivityTimerRef.current) {
+        inactivityTimerRef.current.stop();
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (isWorking) {
+      // Start inactivity timer when work begins
+      if (!inactivityTimerRef.current) {
+        inactivityTimerRef.current = new InactivityTimer(handleInactivityTimeout, 30);
+        inactivityTimerRef.current.start();
+      }
+
       fetchAvailableOrders();
-      const interval = setInterval(fetchAvailableOrders, 10000); // Refresh every 10 seconds
-      return () => clearInterval(interval);
+      const interval = setInterval(() => {
+        fetchAvailableOrders();
+        // Reset timer on each fetch (activity indicator)
+        if (inactivityTimerRef.current) {
+          inactivityTimerRef.current.reset();
+        }
+      }, 10000); // Refresh every 10 seconds
+      
+      return () => {
+        clearInterval(interval);
+      };
+    } else {
+      // Stop timer when work ends
+      if (inactivityTimerRef.current) {
+        inactivityTimerRef.current.stop();
+        inactivityTimerRef.current = null;
+      }
     }
   }, [isWorking]);
+
+  const handleInactivityTimeout = async () => {
+    Alert.alert(
+      'Работа завершена',
+      'Вы были неактивны более 30 минут. Работа автоматически завершена.',
+      [{ text: 'OK' }]
+    );
+    
+    try {
+      await apiService.post('/executor/stop-work');
+      setIsWorking(false);
+      setAvailableOrders([]);
+    } catch (error) {
+      console.error('Error auto-stopping work:', error);
+    }
+  };
 
   const fetchActiveOrder = async () => {
     try {
@@ -66,11 +129,16 @@ export default function ExecutorHomeScreen() {
     }
   };
 
-  const handleStartWork = async () => {
+  const handleStartWork = () => {
+    setShowStartWorkModal(true);
+  };
+
+  const confirmStartWork = async () => {
     setLoading(true);
     try {
       await apiService.post('/executor/start-work');
       setIsWorking(true);
+      setShowStartWorkModal(false);
       fetchAvailableOrders();
     } catch (error: any) {
       alert(error.message || 'Ошибка начала работы');
@@ -79,12 +147,17 @@ export default function ExecutorHomeScreen() {
     }
   };
 
-  const handleStopWork = async () => {
+  const handleStopWork = () => {
+    setShowStopWorkModal(true);
+  };
+
+  const confirmStopWork = async () => {
     setLoading(true);
     try {
       await apiService.post('/executor/stop-work');
       setIsWorking(false);
       setAvailableOrders([]);
+      setShowStopWorkModal(false);
     } catch (error: any) {
       alert(error.message || 'Ошибка завершения работы');
     } finally {
@@ -93,6 +166,10 @@ export default function ExecutorHomeScreen() {
   };
 
   const handleAcceptOrder = (order: Order) => {
+    // Reset inactivity timer on user action
+    if (inactivityTimerRef.current) {
+      inactivityTimerRef.current.reset();
+    }
     setSelectedOrder(order);
     setShowAcceptModal(true);
   };
@@ -108,6 +185,10 @@ export default function ExecutorHomeScreen() {
         setActiveOrder(data.order);
         setAvailableOrders([]);
         setShowAcceptModal(false);
+        // Reset timer after accepting order
+        if (inactivityTimerRef.current) {
+          inactivityTimerRef.current.reset();
+        }
       }
     } catch (error: any) {
       alert(error.message || 'Ошибка принятия заказа');
@@ -117,6 +198,10 @@ export default function ExecutorHomeScreen() {
   };
 
   const handleCompleteOrder = () => {
+    // Reset inactivity timer on user action
+    if (inactivityTimerRef.current) {
+      inactivityTimerRef.current.reset();
+    }
     setShowCompleteModal(true);
   };
 
@@ -129,6 +214,10 @@ export default function ExecutorHomeScreen() {
       setActiveOrder(null);
       setShowCompleteModal(false);
       fetchAvailableOrders();
+      // Reset timer after completing order
+      if (inactivityTimerRef.current) {
+        inactivityTimerRef.current.reset();
+      }
     } catch (error: any) {
       alert(error.message || 'Ошибка завершения заказа');
     } finally {
@@ -137,6 +226,10 @@ export default function ExecutorHomeScreen() {
   };
 
   const handleRefresh = () => {
+    // Reset inactivity timer on user action
+    if (inactivityTimerRef.current) {
+      inactivityTimerRef.current.reset();
+    }
     setRefreshing(true);
     if (isWorking) {
       fetchAvailableOrders(true);
@@ -229,12 +322,6 @@ export default function ExecutorHomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
-      <View style={styles.header}>
-        <Text variant="titleLarge" style={{ color: theme.custom.text }}>
-          Доступные заказы
-        </Text>
-      </View>
-      
       <CustomButton
         mode="outlined"
         variant="secondary"
@@ -315,6 +402,26 @@ export default function ExecutorHomeScreen() {
         onCancel={() => setShowAcceptModal(false)}
         loading={loading}
       />
+
+      <ConfirmationModal
+        visible={showStartWorkModal}
+        title="Начать работу"
+        message="Вы уверены, что хотите начать работу? Вы начнете получать доступные заказы."
+        onConfirm={confirmStartWork}
+        onCancel={() => setShowStartWorkModal(false)}
+        confirmText="Начать"
+        loading={loading}
+      />
+
+      <ConfirmationModal
+        visible={showStopWorkModal}
+        title="Закончить работу"
+        message="Вы уверены, что хотите закончить работу? Вы перестанете получать новые заказы."
+        onConfirm={confirmStopWork}
+        onCancel={() => setShowStopWorkModal(false)}
+        confirmText="Закончить"
+        loading={loading}
+      />
     </View>
   );
 }
@@ -329,9 +436,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
-  },
-  header: {
-    marginBottom: spacing.md,
   },
   stopWorkButton: {
     marginBottom: spacing.lg,

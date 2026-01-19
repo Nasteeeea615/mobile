@@ -86,7 +86,7 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
               },
             ]}
           >
-            Заказ #{order.id.slice(0, 8)}
+            {formatDate(order.scheduledDate)} в {order.scheduledTime}
           </Text>
           <Chip
             style={[
@@ -107,9 +107,6 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
         <View style={styles.details}>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
             Адрес: {order.address.city}, {order.address.street}, {order.address.houseNumber}
-          </Text>
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
-            Время: {formatDate(order.scheduledDate)} в {order.scheduledTime}
           </Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
             Объем: {order.vehicleCapacity} м³

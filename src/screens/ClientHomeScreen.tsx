@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Keyboard } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import VehicleSelector from '../components/VehicleSelector';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomInput from '../components/CustomInput';
@@ -12,6 +12,10 @@ import { addOrder } from '../store/slices/orderSlice';
 import { AppTheme, spacing } from '../theme';
 
 export default function ClientHomeScreen() {
+  const dispatch = useDispatch();
+  const theme = useTheme<AppTheme>();
+  const user = useSelector((state: any) => state.auth.user);
+
   // Form state
   const [vehicleCapacity, setVehicleCapacity] = useState<3 | 5 | 10 | null>(null);
   const [city, setCity] = useState('');
@@ -27,8 +31,19 @@ export default function ClientHomeScreen() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
 
-  const dispatch = useDispatch();
-  const theme = useTheme<AppTheme>();
+  // Autofill address from user profile on component mount
+  useEffect(() => {
+    if (user?.clientProfile) {
+      setCity(user.clientProfile.city || '');
+      setStreet(user.clientProfile.street || '');
+      setHouseNumber(user.clientProfile.houseNumber || user.clientProfile.house_number || '');
+    } else if (user) {
+      // Fallback to user object properties
+      setCity(user.city || '');
+      setStreet(user.street || '');
+      setHouseNumber(user.houseNumber || user.house_number || '');
+    }
+  }, [user]);
 
   const calculatePrice = () => {
     if (!vehicleCapacity) return 0;

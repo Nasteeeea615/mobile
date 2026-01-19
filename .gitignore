@@ -9,6 +9,7 @@ node_modules/
 # Environment
 .env
 .env.local
+src/config/env.local.ts
 
 # IDE
 .vscode/

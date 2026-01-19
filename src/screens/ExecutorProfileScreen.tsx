@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
-import { Text, Switch, Avatar, Divider, useTheme, IconButton, Chip } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Image } from 'react-native';
+import { Text, Divider, useTheme, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import * as ImagePicker from 'expo-image-picker';
-import { toggleTheme } from '../store/slices/profileSlice';
 import { logout, setUser } from '../store/slices/authSlice';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomButton from '../components/CustomButton';
@@ -15,18 +13,94 @@ import { spacing, containerShadows } from '../theme/theme';
 export default function ExecutorProfileScreen() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSwitchRoleModal, setShowSwitchRoleModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'personal' | 'vehicle'>('personal');
+  const [isClient, setIsClient] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
 
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const theme = useTheme();
   const user = useSelector((state: any) => state.auth.user);
-  const themeMode = useSelector((state: any) => state.profile.theme);
 
-  const isDarkTheme = themeMode === 'dark';
+  // Данные автомобиля могут быть в executorProfile или напрямую в user
+  const executorProfile = user?.executorProfile || user?.executor_profile || {
+    vehicleNumber: user?.vehicle_number,
+    vehicleCapacity: user?.vehicle_capacity,
+    documents: user?.documents,
+  };
 
-  const handleToggleTheme = () => {
-    dispatch(toggleTheme());
+  // Debug: выводим данные профиля
+  useEffect(() => {
+    console.log('=== ExecutorProfile Debug ===');
+    console.log('User:', JSON.stringify(user, null, 2));
+    console.log('ExecutorProfile:', JSON.stringify(executorProfile, null, 2));
+  }, [user, executorProfile]);
+
+  // Проверка регистрации как заказчик
+  useEffect(() => {
+    checkClientRegistration();
+  }, []);
+
+  const checkClientRegistration = async () => {
+    setCheckingRole(true);
+    try {
+      const response = await apiService.get('/check-role/client');
+      if (response.success && response.data) {
+        setIsClient((response.data as any).isRegistered);
+      }
+    } catch (error) {
+      console.error('Error checking client registration:', error);
+    } finally {
+      setCheckingRole(false);
+    }
+  };
+
+  const handleSwitchToClient = async () => {
+    if (isClient) {
+      // Уже зарегистрирован - показать диалог переключения
+      setShowSwitchRoleModal(true);
+    } else {
+      // Не зарегистрирован - перейти на регистрацию
+      navigation.navigate('Registration', {
+        prefillData: {
+          name: user?.name,
+          phoneNumber: user?.phoneNumber || user?.phone_number,
+          email: user?.email,
+        },
+      });
+    }
+  };
+
+  const handleConfirmSwitchToClient = async () => {
+    setLoading(true);
+    try {
+      const response = await apiService.post('/switch-role', {
+        newRole: 'client',
+      });
+
+      if (response.success && response.data) {
+        const data = response.data as any;
+        // Обновить токен и пользователя
+        await apiService.setToken(data.token);
+        dispatch(setUser(data.user));
+        
+        setShowSwitchRoleModal(false);
+        
+        // Перейти на профиль заказчика
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'ClientTabs' }],
+        });
+      }
+    } catch (error: any) {
+      console.error('Switch role error:', error);
+      Alert.alert('Ошибка', error.message || 'Не удалось переключить роль');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -34,11 +108,11 @@ export default function ExecutorProfileScreen() {
     try {
       await apiService.post('/auth/logout');
       dispatch(logout());
-      apiService.clearToken();
+      await apiService.clearToken();
       setShowLogoutModal(false);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'PhoneInput' }],
+        routes: [{ name: 'EmailInput' }],
       });
     } catch (error) {
       console.error('Logout error:', error);
@@ -50,77 +124,34 @@ export default function ExecutorProfileScreen() {
   const handleDeleteAccount = async () => {
     setLoading(true);
     try {
-      await apiService.delete('/profile');
+      await apiService.delete('/account');
       dispatch(logout());
-      apiService.clearToken();
+      await apiService.clearToken();
       setShowDeleteModal(false);
-    } catch (error) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'EmailInput' }],
+      });
+    } catch (error: any) {
       console.error('Delete account error:', error);
-      alert('Ошибка удаления аккаунта');
+      Alert.alert('Ошибка', error.message || 'Не удалось удалить аккаунт');
     } finally {
       setLoading(false);
     }
-  };
-
-  const executorProfile = user?.executorProfile || user?.executor_profile;
-
-  // Get initials for avatar
-  const getInitials = (name: string) => {
-    if (!name) return '?';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name[0].toUpperCase();
   };
 
   const handleEditProfile = () => {
-    navigation.navigate('EditExecutorProfile');
+    navigation.navigate('EditProfile', {
+      userType: 'executor',
+    });
   };
 
-  const handlePickImage = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Ошибка', 'Необходимо разрешение на доступ к галерее');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        await uploadProfilePhoto(imageUri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Ошибка', 'Не удалось выбрать изображение');
-    }
+  const openDocumentFullscreen = (documentUri: string) => {
+    setSelectedDocument(documentUri);
   };
 
-  const uploadProfilePhoto = async (uri: string) => {
-    setLoading(true);
-    try {
-      const response = await apiService.post('/profile/photo', {
-        photo: uri,
-      });
-
-      if (response.success && response.data) {
-        const data = response.data as any;
-        dispatch(setUser(data.user));
-        Alert.alert('Успешно', 'Фото профиля обновлено');
-      }
-    } catch (error: any) {
-      Alert.alert('Ошибка', error.message || 'Не удалось загрузить фото');
-    } finally {
-      setLoading(false);
-    }
+  const closeDocumentFullscreen = () => {
+    setSelectedDocument(null);
   };
 
   return (
@@ -128,265 +159,206 @@ export default function ExecutorProfileScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* User Info Card */}
-      <CustomCard style={styles.userCard}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            {user?.profilePhoto || user?.profile_photo ? (
-              <Avatar.Image
-                size={60}
-                source={{ uri: user.profilePhoto || user.profile_photo }}
-                style={styles.avatar}
-              />
-            ) : (
-              <Avatar.Text
-                size={60}
-                label={getInitials(user?.name || 'User')}
-                style={[
-                  styles.avatar,
-                  { backgroundColor: isDarkTheme ? '#FFFFFF' : '#000000' }
-                ]}
-                labelStyle={{ color: isDarkTheme ? '#000000' : '#FFFFFF' }}
-              />
-            )}
-            <TouchableOpacity 
-              style={[styles.cameraIcon, { backgroundColor: theme.colors.primary }]}
-              onPress={handlePickImage}
-              disabled={loading}
-            >
-              <IconButton
-                icon="camera"
-                size={12}
-                iconColor={isDarkTheme ? '#000000' : '#FFFFFF'}
-                style={{ margin: 0 }}
-              />
-            </TouchableOpacity>
-          </View>
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <SegmentedButtons
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'personal' | 'vehicle')}
+          buttons={[
+            {
+              value: 'personal',
+              label: 'Личные данные',
+              icon: 'account',
+            },
+            {
+              value: 'vehicle',
+              label: 'Данные авто',
+              icon: 'car',
+            },
+          ]}
+          style={styles.segmentedButtons}
+        />
+      </View>
+
+      {/* Personal Data Tab */}
+      {activeTab === 'personal' && (
+        <CustomCard style={styles.dataCard}>
+          <Text variant="titleLarge" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
+            Личная информация
+          </Text>
           
-          <View style={styles.nameContainer}>
-            <Text 
-              variant="headlineSmall" 
-              style={[styles.name, { color: theme.colors.onSurface }]}
-            >
-              {user?.name || 'Исполнитель'}
-            </Text>
-            
-            <Text 
-              variant="bodyMedium" 
-              style={[styles.phone, { color: (theme as any).custom.textSecondary }]}
-            >
-              {user?.phoneNumber || user?.phone_number}
-            </Text>
-          </View>
-        </View>
-
-        {/* Executor-specific information */}
-        {executorProfile && (
-          <View style={styles.executorInfoContainer}>
-            <View style={styles.infoRow}>
-              <Text 
-                variant="bodyMedium" 
-                style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
-              >
-                🚛 {executorProfile.vehicleNumber || executorProfile.vehicle_number}
+          <View style={styles.infoSection}>
+            <View style={styles.infoItem}>
+              <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                Имя
               </Text>
-              <Text 
-                variant="bodyMedium" 
-                style={[styles.infoValue, { color: (theme as any).custom.textSecondary }]}
-              >
-                {executorProfile.vehicleCapacity || executorProfile.vehicle_capacity} м³
+              <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+                {user?.name || 'Не указано'}
               </Text>
             </View>
-            
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text 
-                  variant="bodySmall" 
-                  style={{ color: (theme as any).custom.textSecondary }}
-                >
-                  Рейтинг
-                </Text>
-                <Text 
-                  variant="titleMedium" 
-                  style={{ color: theme.colors.onSurface }}
-                >
-                  ⭐ {executorProfile.rating || 0}
-                </Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Text 
-                  variant="bodySmall" 
-                  style={{ color: (theme as any).custom.textSecondary }}
-                >
-                  Заказов
-                </Text>
-                <Text 
-                  variant="titleMedium" 
-                  style={{ color: theme.colors.onSurface }}
-                >
-                  {executorProfile.completedOrdersCount || executorProfile.completed_orders_count || 0}
-                </Text>
-              </View>
+
+            <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+
+            <View style={styles.infoItem}>
+              <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                Номер телефона
+              </Text>
+              <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+                {user?.phoneNumber || user?.phone_number || 'Не указано'}
+              </Text>
             </View>
 
-            {!executorProfile.isVerified && !executorProfile.is_verified && (
-              <View style={styles.verificationBanner}>
-                <Text 
-                  variant="bodySmall" 
-                  style={[styles.verificationNote, { color: (theme as any).custom.textSecondary }]}
-                >
-                  ⚠️ Ваш аккаунт ожидает проверки администратором
+            <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+
+            <View style={styles.infoItem}>
+              <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                Почта
+              </Text>
+              <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+                {user?.email || 'Не указано'}
+              </Text>
+            </View>
+          </View>
+        </CustomCard>
+      )}
+
+      {/* Vehicle Data Tab */}
+      {activeTab === 'vehicle' && (
+        <CustomCard style={styles.dataCard}>
+          <Text variant="titleLarge" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
+            Данные автомобиля
+          </Text>
+          
+          {(executorProfile?.vehicleNumber || executorProfile?.vehicle_number || user?.vehicle_number) ? (
+            <View style={styles.infoSection}>
+              <View style={styles.infoItem}>
+                <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                  Номер машины
+                </Text>
+                <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+                  {executorProfile?.vehicleNumber || executorProfile?.vehicle_number || user?.vehicle_number || 'Не указано'}
                 </Text>
               </View>
-            )}
-          </View>
-        )}
+
+              <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+
+              <View style={styles.infoItem}>
+                <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                  Объем машины
+                </Text>
+                <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+                  {executorProfile?.vehicleCapacity || executorProfile?.vehicle_capacity || user?.vehicle_capacity || 'Не указано'} м³
+                </Text>
+              </View>
+
+              {/* Documents Gallery */}
+              {(executorProfile?.documents || user?.documents) && (
+                <>
+                  <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+                  <View style={styles.documentsSection}>
+                    <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                      Фото документов
+                    </Text>
+                    
+                    <View style={styles.documentsGallery}>
+                      {/* Passport */}
+                      {((executorProfile?.documents || user?.documents)?.passportPhoto || (executorProfile?.documents || user?.documents)?.passport_photo) && (
+                        <TouchableOpacity 
+                          style={styles.documentThumbnail}
+                          onPress={() => openDocumentFullscreen((executorProfile?.documents || user?.documents).passportPhoto || (executorProfile?.documents || user?.documents).passport_photo)}
+                        >
+                          <Image
+                            source={{ uri: (executorProfile?.documents || user?.documents).passportPhoto || (executorProfile?.documents || user?.documents).passport_photo }}
+                            style={styles.thumbnailImage}
+                            resizeMode="cover"
+                          />
+                          <Text variant="bodySmall" style={styles.thumbnailLabel}>
+                            Паспорт
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Driver License */}
+                      {((executorProfile?.documents || user?.documents)?.driverLicensePhoto || (executorProfile?.documents || user?.documents)?.driver_license_photo) && (
+                        <TouchableOpacity 
+                          style={styles.documentThumbnail}
+                          onPress={() => openDocumentFullscreen((executorProfile?.documents || user?.documents).driverLicensePhoto || (executorProfile?.documents || user?.documents).driver_license_photo)}
+                        >
+                          <Image
+                            source={{ uri: (executorProfile?.documents || user?.documents).driverLicensePhoto || (executorProfile?.documents || user?.documents).driver_license_photo }}
+                            style={styles.thumbnailImage}
+                            resizeMode="cover"
+                          />
+                          <Text variant="bodySmall" style={styles.thumbnailLabel}>
+                            Водит. удост.
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Vehicle Registration */}
+                      {((executorProfile?.documents || user?.documents)?.vehicleRegistrationPhoto || (executorProfile?.documents || user?.documents)?.vehicle_registration_photo) && (
+                        <TouchableOpacity 
+                          style={styles.documentThumbnail}
+                          onPress={() => openDocumentFullscreen((executorProfile?.documents || user?.documents).vehicleRegistrationPhoto || (executorProfile?.documents || user?.documents).vehicle_registration_photo)}
+                        >
+                          <Image
+                            source={{ uri: (executorProfile?.documents || user?.documents).vehicleRegistrationPhoto || (executorProfile?.documents || user?.documents).vehicle_registration_photo }}
+                            style={styles.thumbnailImage}
+                            resizeMode="cover"
+                          />
+                          <Text variant="bodySmall" style={styles.thumbnailLabel}>
+                            Рег. ТС
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : (
+            <Text variant="bodyMedium" style={{ color: (theme as any).custom.textSecondary, textAlign: 'center', paddingVertical: spacing.lg }}>
+              Данные автомобиля не найдены
+            </Text>
+          )}
+        </CustomCard>
+      )}
+
+      {/* Action Buttons */}
+      <View style={styles.section}>
+        <CustomButton
+          mode="contained"
+          variant="primary"
+          onPress={() => navigation.navigate('ExecutorBalance')}
+          style={styles.actionButton}
+        >
+          Баланс / Вывод средств
+        </CustomButton>
+
+        <CustomButton
+          mode="contained"
+          variant="primary"
+          onPress={handleSwitchToClient}
+          style={styles.actionButton}
+          loading={checkingRole}
+        >
+          Перейти в режим заказчика
+        </CustomButton>
 
         <CustomButton
           mode="outlined"
           variant="secondary"
           onPress={handleEditProfile}
-          style={styles.editButton}
-          icon="account-edit"
+          style={styles.actionButton}
         >
-          Редактировать профиль
+          Редактировать аккаунт
         </CustomButton>
-      </CustomCard>
 
-      {/* Documents Section */}
-      {executorProfile?.documents && (
-        <View style={styles.section}>
-          <Text 
-            variant="titleMedium" 
-            style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-          >
-            Документы
-          </Text>
-          
-          <CustomCard style={styles.documentsCard}>
-            <View style={styles.documentItem}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
-                📄 Паспорт
-              </Text>
-              {executorProfile.documents.passportPhoto || executorProfile.documents.passport_photo ? (
-                <Chip 
-                  icon="check" 
-                  style={{ backgroundColor: 'rgba(76, 175, 80, 0.1)' }}
-                  textStyle={{ color: '#4CAF50' }}
-                >
-                  Загружен
-                </Chip>
-              ) : (
-                <Chip 
-                  icon="close" 
-                  style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)' }}
-                  textStyle={{ color: '#F44336' }}
-                >
-                  Не загружен
-                </Chip>
-              )}
-            </View>
-
-            <Divider style={{ backgroundColor: (theme as any).custom.divider, marginVertical: spacing.sm }} />
-
-            <View style={styles.documentItem}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
-                🪪 Водительское удостоверение
-              </Text>
-              {executorProfile.documents.driverLicensePhoto || executorProfile.documents.driver_license_photo ? (
-                <Chip 
-                  icon="check" 
-                  style={{ backgroundColor: 'rgba(76, 175, 80, 0.1)' }}
-                  textStyle={{ color: '#4CAF50' }}
-                >
-                  Загружен
-                </Chip>
-              ) : (
-                <Chip 
-                  icon="close" 
-                  style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)' }}
-                  textStyle={{ color: '#F44336' }}
-                >
-                  Не загружен
-                </Chip>
-              )}
-            </View>
-
-            <Divider style={{ backgroundColor: (theme as any).custom.divider, marginVertical: spacing.sm }} />
-
-            <View style={styles.documentItem}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
-                🚗 Свидетельство о регистрации ТС
-              </Text>
-              {executorProfile.documents.vehicleRegistrationPhoto || executorProfile.documents.vehicle_registration_photo ? (
-                <Chip 
-                  icon="check" 
-                  style={{ backgroundColor: 'rgba(76, 175, 80, 0.1)' }}
-                  textStyle={{ color: '#4CAF50' }}
-                >
-                  Загружен
-                </Chip>
-              ) : (
-                <Chip 
-                  icon="close" 
-                  style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)' }}
-                  textStyle={{ color: '#F44336' }}
-                >
-                  Не загружен
-                </Chip>
-              )}
-            </View>
-          </CustomCard>
-        </View>
-      )}
-
-      {/* Settings Section */}
-      <View style={styles.section}>
-        <Text 
-          variant="titleMedium" 
-          style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-        >
-          Настройки
-        </Text>
-
-        <CustomCard style={styles.settingsCard}>
-          <TouchableOpacity 
-            style={styles.settingItem}
-            onPress={() => navigation.navigate('ClientTabs')}
-          >
-            <View style={styles.settingLeft}>
-              <View style={styles.iconContainer}>
-                <Text style={styles.iconEmoji}>🔄</Text>
-              </View>
-              <View>
-                <Text 
-                  variant="bodyLarge" 
-                  style={{ color: theme.colors.onSurface }}
-                >
-                  Переключиться на заказчика
-                </Text>
-                <Text 
-                  variant="bodySmall" 
-                  style={{ color: (theme as any).custom.textSecondary }}
-                >
-                  Перейти в режим заказчика
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        </CustomCard>
-      </View>
-
-      {/* Actions Section */}
-      <View style={styles.section}>
         <CustomButton
           mode="outlined"
           variant="secondary"
           onPress={() => setShowLogoutModal(true)}
           style={styles.actionButton}
-          icon="logout"
         >
           Выйти из аккаунта
         </CustomButton>
@@ -396,12 +368,50 @@ export default function ExecutorProfileScreen() {
           variant="danger"
           onPress={() => setShowDeleteModal(true)}
           style={styles.actionButton}
-          icon="delete"
         >
-          Удалить профиль
+          Удалить аккаунт
         </CustomButton>
       </View>
 
+      {/* Document Fullscreen Modal */}
+      <Modal
+        visible={!!selectedDocument}
+        transparent={true}
+        onRequestClose={closeDocumentFullscreen}
+        animationType="fade"
+      >
+        <View style={styles.fullscreenModal}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={closeDocumentFullscreen}
+          >
+            <View style={styles.closeButtonCircle}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </View>
+          </TouchableOpacity>
+          {selectedDocument && (
+            <Image
+              source={{ uri: selectedDocument }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* Switch Role Modal */}
+      <ConfirmationModal
+        visible={showSwitchRoleModal}
+        title="Переключиться в режим заказчика?"
+        message="Вы уже зарегистрированы как заказчик. Переключиться на аккаунт заказчика?"
+        onConfirm={handleConfirmSwitchToClient}
+        onCancel={() => setShowSwitchRoleModal(false)}
+        confirmText="Да"
+        cancelText="Нет"
+        loading={loading}
+      />
+
+      {/* Logout Modal */}
       <ConfirmationModal
         visible={showLogoutModal}
         title="Выход из аккаунта"
@@ -412,10 +422,11 @@ export default function ExecutorProfileScreen() {
         loading={loading}
       />
 
+      {/* Delete Account Modal */}
       <ConfirmationModal
         visible={showDeleteModal}
         title="Удаление аккаунта"
-        message="Вы уверены, что хотите удалить аккаунт? Это действие необратимо."
+        message="Это удалит все ваши данные навсегда! Вы уверены?"
         onConfirm={handleDeleteAccount}
         onCancel={() => setShowDeleteModal(false)}
         confirmText="Удалить"
@@ -433,128 +444,94 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
-  userCard: {
+  tabsContainer: {
+    marginBottom: spacing.md,
+  },
+  segmentedButtons: {
+    marginHorizontal: 0,
+  },
+  dataCard: {
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: spacing.md,
-  },
-  avatar: {
-    ...containerShadows.card,
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    borderRadius: 16,
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nameContainer: {
-    flex: 1,
-  },
-  documentsCard: {
-    padding: spacing.md,
-  },
-  documentItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  name: {
+  cardTitle: {
     fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  phone: {
-    marginBottom: 0,
-  },
-  executorInfoContainer: {
-    width: '100%',
     marginBottom: spacing.md,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
+  infoSection: {
+    gap: 0,
+  },
+  infoItem: {
+    paddingVertical: spacing.sm,
   },
   infoLabel: {
-    flex: 1,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
   infoValue: {
     fontWeight: '600',
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.sm,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+  divider: {
+    marginVertical: spacing.xs,
   },
-  statItem: {
+  documentsSection: {
+    marginTop: spacing.md,
+  },
+  documentsGallery: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  documentThumbnail: {
+    width: 100,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    ...containerShadows.card,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: 100,
+    backgroundColor: '#F5F5F5',
+  },
+  thumbnailLabel: {
+    padding: spacing.xs,
+    textAlign: 'center',
+    fontSize: 10,
+  },
+  fullscreenModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  verificationBanner: {
-    marginTop: spacing.md,
-    padding: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
   },
-  verificationNote: {
-    textAlign: 'center',
+  closeButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  editButton: {
-    marginTop: spacing.sm,
-    minWidth: 200,
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
   },
   section: {
     marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  settingsCard: {
-    padding: 0,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    minHeight: 72,
-  },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  iconEmoji: {
-    fontSize: 24,
-  },
-  chevron: {
-    fontSize: 24,
-    color: '#999999',
   },
   actionButton: {
     marginBottom: spacing.sm,

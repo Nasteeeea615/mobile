@@ -12,12 +12,16 @@ import KeyboardDismissWrapper from '../components/KeyboardDismissWrapper';
 import { AppTheme, spacing } from '../theme';
 
 export default function ExecutorRegistrationScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleCapacity, setVehicleCapacity] = useState<3 | 5 | 10 | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   // Document upload states
   const [passportPhoto, setPassportPhoto] = useState<string | null>(null);
@@ -34,13 +38,28 @@ export default function ExecutorRegistrationScreen() {
   const dispatch = useDispatch();
   const theme = useTheme<AppTheme>();
 
-  const phoneNumber = route.params?.phoneNumber || '';
+  const prefillEmail = route.params?.email || '';
+  const prefillName = route.params?.prefillData?.name || '';
+
+  React.useEffect(() => {
+    if (prefillEmail) {
+      setEmail(prefillEmail);
+    }
+    if (prefillName) {
+      setName(prefillName);
+    }
+  }, [prefillEmail, prefillName]);
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleRegister = async () => {
     // Dismiss keyboard before validation
     Keyboard.dismiss();
     
-    setError('');
+    setErrors({});
     setDocumentErrors({
       passport: '',
       driverLicense: '',
@@ -48,9 +67,34 @@ export default function ExecutorRegistrationScreen() {
     });
 
     // Validation
-    if (!name || !vehicleNumber || !vehicleCapacity) {
-      setError('Заполните все поля');
-      return;
+    const newErrors: Record<string, string> = {};
+
+    if (!email || !validateEmail(email)) {
+      newErrors.email = 'Введите корректный email';
+    }
+
+    if (!password || password.length < 6) {
+      newErrors.password = 'Пароль должен содержать минимум 6 символов';
+    }
+
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Пароли не совпадают';
+    }
+
+    if (!name) {
+      newErrors.name = 'Введите имя';
+    }
+
+    if (!phoneNumber) {
+      newErrors.phoneNumber = 'Введите номер телефона';
+    }
+
+    if (!vehicleNumber) {
+      newErrors.vehicleNumber = 'Введите номер машины';
+    }
+
+    if (!vehicleCapacity) {
+      newErrors.vehicleCapacity = 'Выберите объем машины';
     }
 
     // Document validation
@@ -78,12 +122,15 @@ export default function ExecutorRegistrationScreen() {
 
     if (hasDocumentErrors) {
       setDocumentErrors(newDocumentErrors);
-      setError('Необходимо загрузить все документы');
-      return;
+      newErrors.documents = 'Необходимо загрузить все документы';
     }
 
     if (!agreedToTerms) {
-      setError('Необходимо согласиться с условиями');
+      newErrors.terms = 'Необходимо согласиться с условиями';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -91,8 +138,10 @@ export default function ExecutorRegistrationScreen() {
 
     try {
       const response = await apiService.post('/auth/register-executor', {
-        phone_number: phoneNumber,
+        email,
+        password,
         name,
+        phone_number: phoneNumber,
         vehicle_number: vehicleNumber,
         vehicle_capacity: vehicleCapacity,
         agreed_to_terms: agreedToTerms,
@@ -114,9 +163,9 @@ export default function ExecutorRegistrationScreen() {
     } catch (err: any) {
       // Handle document upload errors specifically
       if (err.code === 'DOCUMENT_UPLOAD_ERROR') {
-        setError('Не удалось загрузить документы. Попробуйте снова');
+        setErrors({ general: 'Не удалось загрузить документы. Попробуйте снова' });
       } else {
-        setError(err.message || 'Ошибка регистрации');
+        setErrors({ general: err.message || 'Ошибка регистрации' });
       }
     } finally {
       setLoading(false);
@@ -134,10 +183,58 @@ export default function ExecutorRegistrationScreen() {
         </Text>
 
         <CustomInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          disabled={loading}
+          error={!!errors.email}
+          errorText={errors.email}
+          style={styles.input}
+        />
+
+        <CustomInput
+          label="Пароль"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          disabled={loading}
+          error={!!errors.password}
+          errorText={errors.password}
+          style={styles.input}
+        />
+
+        <CustomInput
+          label="Подтвердите пароль"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          disabled={loading}
+          error={!!errors.confirmPassword}
+          errorText={errors.confirmPassword}
+          style={styles.input}
+        />
+
+        <CustomInput
           label="Имя"
           value={name}
           onChangeText={setName}
           disabled={loading}
+          error={!!errors.name}
+          errorText={errors.name}
+          style={styles.input}
+        />
+
+        <CustomInput
+          label="Номер телефона"
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+          keyboardType="phone-pad"
+          placeholder="+7 (999) 123-45-67"
+          disabled={loading}
+          error={!!errors.phoneNumber}
+          errorText={errors.phoneNumber}
           style={styles.input}
         />
 
@@ -147,12 +244,18 @@ export default function ExecutorRegistrationScreen() {
           onChangeText={setVehicleNumber}
           placeholder="А123БВ77"
           disabled={loading}
+          error={!!errors.vehicleNumber}
+          errorText={errors.vehicleNumber}
           style={styles.input}
         />
 
         <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.text }]}>
           Объем машины
         </Text>
+
+        {errors.vehicleCapacity && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.vehicleCapacity}</Text>
+        )}
 
         <View style={styles.capacityContainer}>
           <TouchableOpacity
@@ -274,7 +377,9 @@ export default function ExecutorRegistrationScreen() {
           </Text>
         </View>
 
-        {error ? <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text> : null}
+        {errors.general && <Text style={[styles.error, { color: theme.colors.error }]}>{errors.general}</Text>}
+        {errors.terms && <Text style={[styles.error, { color: theme.colors.error }]}>{errors.terms}</Text>}
+        {errors.documents && <Text style={[styles.error, { color: theme.colors.error }]}>{errors.documents}</Text>}
 
         <CustomButton
           mode="contained"
