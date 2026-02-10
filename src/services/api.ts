@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import { APIResponse, APIError } from '../types';
 import { getAuthToken, saveAuthToken, deleteAuthToken } from '../utils/secureStorage';
-import mockApi, { MOCK_MODE, MOCK_AUTH } from './mockApi';
+import mockApi, { MOCK_MODE } from './mockApi';
 import { ENV } from '../config/env';
 
 const API_URL = ENV.API_URL;
@@ -242,11 +242,6 @@ class ApiService {
   }
 
   async post<T>(url: string, data?: any): Promise<APIResponse<T>> {
-    // Используем мок для аутентификации (SMS)
-    if (MOCK_AUTH && (url === '/auth/send-sms' || url === '/auth/verify-sms')) {
-      return mockApi.post<T>(url, data);
-    }
-    
     if (MOCK_MODE) {
       return mockApi.post<T>(url, data);
     }

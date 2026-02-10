@@ -274,7 +274,7 @@ export default function ExecutorHomeScreen() {
             Детали заказа:
           </Text>
           <Text variant="bodyLarge" style={[styles.detailText, { color: theme.custom.text }]}>
-            📍 {activeOrder.address.city}, {activeOrder.address.street}, {activeOrder.address.houseNumber}
+            📍 {activeOrder.city}, {activeOrder.street}, {activeOrder.house_number}
           </Text>
           <Text variant="bodyLarge" style={[styles.detailText, { color: theme.custom.text }]}>
             💰 {activeOrder.price} ₽
@@ -397,7 +397,7 @@ export default function ExecutorHomeScreen() {
       <ConfirmationModal
         visible={showAcceptModal}
         title="Принять заказ"
-        message={`Принять заказ на ${selectedOrder?.address.city}, ${selectedOrder?.address.street}?`}
+        message={`Принять заказ в городе ${selectedOrder?.city}?`}
         onConfirm={confirmAcceptOrder}
         onCancel={() => setShowAcceptModal(false)}
         loading={loading}

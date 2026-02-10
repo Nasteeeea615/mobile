@@ -2,7 +2,6 @@ import { APIResponse } from '../types';
 
 // Mock режим - включить/выключить
 export const MOCK_MODE = true; // Полный мок-режим для тестирования UI
-export const MOCK_AUTH = true; // Мок для SMS и номера телефона
 
 // Задержка для имитации сетевых запросов
 const MOCK_DELAY = 800;

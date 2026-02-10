@@ -11,12 +11,6 @@ export const phoneSchema = yup
   .matches(/^(\+7|8)?[\s-]?\(?[489][0-9]{2}\)?[\s-]?[0-9]{3}[\s-]?[0-9]{2}[\s-]?[0-9]{2}$/, 
     'Неверный формат номера телефона');
 
-// Валидация SMS кода
-export const smsCodeSchema = yup
-  .string()
-  .required('Код подтверждения обязателен')
-  .matches(/^[0-9]{4,6}$/, 'Код должен содержать 4-6 цифр');
-
 // Валидация имени
 export const nameSchema = yup
   .string()

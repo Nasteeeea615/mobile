@@ -105,9 +105,16 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
         </View>
 
         <View style={styles.details}>
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
-            Адрес: {order.address.city}, {order.address.street}, {order.address.houseNumber}
-          </Text>
+          {/* Show full address only if street and houseNumber are available */}
+          {order.address?.street && order.address?.houseNumber ? (
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
+              Адрес: {order.address.city}, {order.address.street}, {order.address.houseNumber}
+            </Text>
+          ) : (
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
+              Город: {order.city || order.address?.city}
+            </Text>
+          )}
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>
             Объем: {order.vehicleCapacity} м³
           </Text>
