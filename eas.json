@@ -7,37 +7,53 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
       },
       "env": {
-        "API_URL": "http://localhost:3000/api"
-      }
+        "API_URL": "http://localhost:3000/api",
+        "WS_URL": "ws://localhost:3000",
+        "ENVIRONMENT": "development"
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "API_URL": "https://staging-api.example.com/api"
-      }
+        "API_URL": "https://staging-api.septikservice.com/api",
+        "WS_URL": "wss://staging-api.septikservice.com",
+        "ENVIRONMENT": "staging"
+      },
+      "channel": "preview"
     },
     "production": {
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "resourceClass": "m-medium",
+        "autoIncrement": true
       },
       "android": {
-        "buildType": "aab"
+        "buildType": "aab",
+        "gradleCommand": ":app:bundleRelease"
       },
       "env": {
-        "API_URL": "https://api.example.com/api"
-      }
+        "API_URL": "https://api.septikservice.com/api",
+        "WS_URL": "wss://api.septikservice.com",
+        "ENVIRONMENT": "production"
+      },
+      "channel": "production"
     }
   },
   "submit": {
@@ -49,7 +65,14 @@
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "production"
+        "track": "production",
+        "releaseStatus": "completed"
+      }
+    },
+    "preview": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
       }
     }
   }

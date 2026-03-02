@@ -6,7 +6,19 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:preview:android": "eas build --platform android --profile preview",
+    "build:preview:ios": "eas build --platform ios --profile preview",
+    "build:production:android": "eas build --platform android --profile production",
+    "build:production:ios": "eas build --platform ios --profile production",
+    "build:all:preview": "eas build --platform all --profile preview",
+    "build:all:production": "eas build --platform all --profile production",
+    "submit:android": "eas submit --platform android",
+    "submit:ios": "eas submit --platform ios",
+    "setup:eas": "pwsh ./scripts/setup-eas.ps1",
+    "setup:push": "pwsh ./scripts/setup-push-notifications.ps1",
+    "update:preview": "eas update --branch preview --message \"Preview update\"",
+    "update:production": "eas update --branch production --message \"Production update\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
