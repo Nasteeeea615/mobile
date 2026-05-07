@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import api from './api';
 
@@ -60,9 +61,19 @@ class NotificationService {
         return null;
       }
 
-      // Get Expo push token
+      const projectId =
+        Constants.easConfig?.projectId ||
+        Constants.expoConfig?.extra?.eas?.projectId ||
+        process.env.EXPO_PROJECT_ID ||
+        null;
+
+      if (!projectId) {
+        throw new Error('Expo projectId is not configured');
+      }
+
+      // Get official Expo push token
       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PROJECT_ID || 'your-project-id',
+        projectId,
       });
 
       this.expoPushToken = tokenData.data;
@@ -88,7 +99,7 @@ class NotificationService {
   }
 
   /**
-   * Save FCM token to backend
+   * Save Expo push token to backend
    */
   async saveFCMTokenToBackend(token: string): Promise<void> {
     try {
@@ -101,14 +112,14 @@ class NotificationService {
         deviceId,
       });
 
-      console.log('FCM token saved to backend');
+      console.log('Push token saved to backend');
     } catch (error) {
-      console.error('Error saving FCM token to backend:', error);
+      console.error('Error saving push token to backend:', error);
     }
   }
 
   /**
-   * Remove FCM token from backend
+   * Remove push token from backend
    */
   async removeFCMTokenFromBackend(): Promise<void> {
     try {
@@ -120,18 +131,16 @@ class NotificationService {
         data: { token: this.expoPushToken },
       });
 
-      console.log('FCM token removed from backend');
+      console.log('Push token removed from backend');
     } catch (error) {
-      console.error('Error removing FCM token from backend:', error);
+      console.error('Error removing push token from backend:', error);
     }
   }
 
   /**
    * Get notification listener for foreground notifications
    */
-  addNotificationReceivedListener(
-    callback: (notification: Notifications.Notification) => void
-  ) {
+  addNotificationReceivedListener(callback: (notification: Notifications.Notification) => void) {
     return Notifications.addNotificationReceivedListener(callback);
   }
 
@@ -158,7 +167,7 @@ class NotificationService {
       seconds,
       repeats: false,
     };
-    
+
     return await Notifications.scheduleNotificationAsync({
       content: {
         title,
