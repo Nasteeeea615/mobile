@@ -68,13 +68,13 @@ class NotificationService {
         null;
 
       if (!projectId) {
-        throw new Error('Expo projectId is not configured');
+        console.warn('Expo projectId is not configured. Falling back to default token registration.');
       }
 
       // Get official Expo push token
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId,
-      });
+      const tokenData = projectId
+        ? await Notifications.getExpoPushTokenAsync({ projectId })
+        : await Notifications.getExpoPushTokenAsync();
 
       this.expoPushToken = tokenData.data;
 
