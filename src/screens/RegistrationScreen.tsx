@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Keyboard, Linking } from 'react-native';
 import { Text, Checkbox, useTheme } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useDispatch } from 'react-redux';
 import apiService from '../services/api';
-import { setUser, setToken } from '../store/slices/authSlice';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
 import KeyboardDismissWrapper from '../components/KeyboardDismissWrapper';
@@ -25,7 +23,6 @@ export default function RegistrationScreen() {
 
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const dispatch = useDispatch();
   const theme = useTheme<AppTheme>();
 
   const prefillEmail = route.params?.email || '';
@@ -44,7 +41,7 @@ export default function RegistrationScreen() {
   const handleRegister = async () => {
     // Dismiss keyboard before validation
     Keyboard.dismiss();
-    
+
     setErrors({});
 
     // Validation
@@ -106,12 +103,8 @@ export default function RegistrationScreen() {
       });
 
       if (response.success && response.data) {
-        const data = response.data as any;
-        dispatch(setToken(data.token));
-        dispatch(setUser(data.user));
-        apiService.setToken(data.token);
-
-        navigation.replace('ClientTabs');
+        await apiService.post('/auth/request-code', { email, role: 'client' });
+        navigation.replace('VerificationCode', { email, role: 'client' });
       }
     } catch (err: any) {
       setErrors({ general: err.message || 'Ошибка регистрации' });
@@ -128,150 +121,169 @@ export default function RegistrationScreen() {
       <Text variant="headlineMedium" style={[styles.title, { color: theme.custom.text }]}>
         Регистрация заказчика
       </Text>
-        <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.custom.textSecondary }]}>
-          Заполните данные для создания аккаунта
-        </Text>
+      <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.custom.textSecondary }]}>
+        Заполните данные для создания аккаунта
+      </Text>
 
-        <CustomInput
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          disabled={loading}
-          error={!!errors.email}
-          errorText={errors.email}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        disabled={loading}
+        error={!!errors.email}
+        errorText={errors.email}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Пароль"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          disabled={loading}
-          error={!!errors.password}
-          errorText={errors.password}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Пароль"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        disabled={loading}
+        error={!!errors.password}
+        errorText={errors.password}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Подтвердите пароль"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          disabled={loading}
-          error={!!errors.confirmPassword}
-          errorText={errors.confirmPassword}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Подтвердите пароль"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
+        disabled={loading}
+        error={!!errors.confirmPassword}
+        errorText={errors.confirmPassword}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Имя"
-          value={name}
-          onChangeText={setName}
-          disabled={loading}
-          error={!!errors.name}
-          errorText={errors.name}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Имя"
+        value={name}
+        onChangeText={setName}
+        disabled={loading}
+        error={!!errors.name}
+        errorText={errors.name}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Номер телефона"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          keyboardType="phone-pad"
-          placeholder="+7 (999) 123-45-67"
-          disabled={loading}
-          error={!!errors.phoneNumber}
-          errorText={errors.phoneNumber}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Номер телефона"
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
+        keyboardType="phone-pad"
+        placeholder="+7 (999) 123-45-67"
+        disabled={loading}
+        error={!!errors.phoneNumber}
+        errorText={errors.phoneNumber}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Город"
-          value={city}
-          onChangeText={setCity}
-          disabled={loading}
-          error={!!errors.city}
-          errorText={errors.city}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Город"
+        value={city}
+        onChangeText={setCity}
+        disabled={loading}
+        error={!!errors.city}
+        errorText={errors.city}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Улица"
-          value={street}
-          onChangeText={setStreet}
-          disabled={loading}
-          error={!!errors.street}
-          errorText={errors.street}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Улица"
+        value={street}
+        onChangeText={setStreet}
+        disabled={loading}
+        error={!!errors.street}
+        errorText={errors.street}
+        style={styles.input}
+      />
 
-        <CustomInput
-          label="Номер дома"
-          value={houseNumber}
-          onChangeText={setHouseNumber}
-          disabled={loading}
-          error={!!errors.houseNumber}
-          errorText={errors.houseNumber}
-          style={styles.input}
-        />
+      <CustomInput
+        label="Номер дома"
+        value={houseNumber}
+        onChangeText={setHouseNumber}
+        disabled={loading}
+        error={!!errors.houseNumber}
+        errorText={errors.houseNumber}
+        style={styles.input}
+      />
 
-        <View style={[styles.checkboxContainer, { 
-          backgroundColor: theme.custom.surface,
-          borderColor: theme.custom.border,
-          borderWidth: 1,
-          borderRadius: 8,
-          padding: spacing.md,
-        }]}>
+      <View
+        style={[
+          styles.checkboxContainer,
+          {
+            backgroundColor: theme.custom.surface,
+            borderColor: theme.custom.border,
+            borderWidth: 1,
+            borderRadius: 8,
+            padding: spacing.md,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.checkboxSquare,
+            {
+              borderColor: errors.terms
+                ? theme.colors.error
+                : theme.dark
+                  ? theme.custom.border
+                  : 'rgba(0, 0, 0, 0.45)',
+            },
+          ]}
+        >
           <Checkbox
             status={agreedToTerms ? 'checked' : 'unchecked'}
             onPress={() => setAgreedToTerms(!agreedToTerms)}
             disabled={loading}
             color={theme.custom.primary}
+            uncheckedColor={theme.dark ? theme.custom.textSecondary : 'rgba(0, 0, 0, 0.65)'}
           />
-          <Text style={[styles.checkboxLabel, { color: theme.custom.text }]}>
-            Я согласен с{' '}
-            <Text 
-              style={{ color: theme.custom.primary, textDecorationLine: 'underline' }}
-              onPress={() => Linking.openURL('https://example.com/terms')}
-            >
-              пользовательским соглашением
-            </Text>
-          </Text>
         </View>
+        <Text style={[styles.checkboxLabel, { color: theme.custom.text }]}>
+          Я согласен с{' '}
+          <Text
+            style={{ color: theme.custom.primary, textDecorationLine: 'underline' }}
+            onPress={() => Linking.openURL('https://example.com/terms')}
+          >
+            политикой конфиденциальности
+          </Text>
+        </Text>
+      </View>
 
-        {errors.general && (
-          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.general}</Text>
-        )}
+      {errors.general && (
+        <Text style={[styles.error, { color: theme.colors.error }]}>{errors.general}</Text>
+      )}
 
-        {errors.terms && (
-          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.terms}</Text>
-        )}
+      {errors.terms && (
+        <Text style={[styles.error, { color: theme.colors.error }]}>{errors.terms}</Text>
+      )}
 
-        <CustomButton
-          mode="contained"
-          variant="primary"
-          onPress={handleRegister}
-          loading={loading}
-          disabled={loading}
-          fullWidth
-          style={styles.button}
-        >
-          Зарегистрироваться
-        </CustomButton>
+      <CustomButton
+        mode="contained"
+        variant="primary"
+        onPress={handleRegister}
+        loading={loading}
+        disabled={loading}
+        fullWidth
+        style={styles.button}
+      >
+        Зарегистрироваться
+      </CustomButton>
 
-        <CustomButton
-          mode="outlined"
-          variant="secondary"
-          onPress={() => navigation.navigate('ExecutorRegistration', { email })}
-          disabled={loading}
-          fullWidth
-          style={styles.switchButton}
-        >
-          Хочу стать исполнителем
-        </CustomButton>
+      <CustomButton
+        mode="outlined"
+        variant="secondary"
+        onPress={() => navigation.navigate('ExecutorRegistration', { email })}
+        disabled={loading}
+        fullWidth
+        style={styles.switchButton}
+      >
+        Хочу стать исполнителем
+      </CustomButton>
     </KeyboardDismissWrapper>
   );
 }
@@ -302,6 +314,14 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     flex: 1,
     marginLeft: spacing.sm,
+  },
+  checkboxSquare: {
+    width: 28,
+    height: 28,
+    borderWidth: 1,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   error: {
     marginBottom: spacing.sm,

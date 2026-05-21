@@ -9,7 +9,6 @@ import { AppTheme, spacing } from '../theme';
 
 export default function EmailInputScreen() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigation = useNavigation<any>();
@@ -29,31 +28,13 @@ export default function EmailInputScreen() {
       return;
     }
 
-    if (!password || password.length < 6) {
-      setError('Пароль должен содержать минимум 6 символов');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const response = await apiService.post('/auth/login', {
-        email,
-        password,
-      });
+      const response = await apiService.post('/auth/request-code', { email });
 
       if (response.success && response.data) {
-        const data = response.data as any;
-        
-        // Save token and user
-        await apiService.setToken(data.token);
-        
-        // Navigate based on user role
-        if (data.user.role === 'client') {
-          navigation.replace('ClientTabs');
-        } else if (data.user.role === 'executor') {
-          navigation.replace('ExecutorTabs');
-        }
+        navigation.navigate('VerificationCode', { email });
       }
     } catch (err: any) {
       if (err.code === 'USER_NOT_FOUND') {
@@ -77,7 +58,7 @@ export default function EmailInputScreen() {
           Добро пожаловать
         </Text>
         <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.custom.textSecondary }]}>
-          Войдите в свой аккаунт
+            Войдите по коду подтверждения из email
         </Text>
 
         <CustomInput
@@ -92,20 +73,7 @@ export default function EmailInputScreen() {
           style={styles.input}
         />
 
-        <CustomInput
-          label="Пароль"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="Минимум 6 символов"
-          error={!!error && error.includes('Пароль')}
-          disabled={loading}
-          style={styles.input}
-        />
-
-        {error && (
-          <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>
-        )}
+        {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
 
         <CustomButton
           mode="contained"
@@ -116,7 +84,7 @@ export default function EmailInputScreen() {
           fullWidth
           style={styles.button}
         >
-          Войти
+          Получить код
         </CustomButton>
 
         <CustomButton

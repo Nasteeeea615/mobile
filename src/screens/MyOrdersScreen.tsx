@@ -61,12 +61,20 @@ export default function MyOrdersScreen() {
 
   const getActiveOrder = (): Order | undefined => {
     return orders.find(
-      (order: Order) => order.status === 'assigned' || order.status === 'in_progress'
+      (order: Order) =>
+        order.status === 'pending' ||
+        order.status === 'assigned' ||
+        order.status === 'accepted' ||
+        order.status === 'in_progress' ||
+        order.status === 'awaiting_payment' ||
+        order.status === 'paid'
     );
   };
 
   const getCompletedOrders = (): Order[] => {
-    return orders.filter((order: Order) => order.status === 'completed' || order.status === 'cancelled');
+    return orders.filter(
+      (order: Order) => order.status === 'completed' || order.status === 'cancelled'
+    );
   };
 
   const renderActiveOrder = () => {
@@ -123,7 +131,10 @@ export default function MyOrdersScreen() {
         <Text variant="titleMedium" style={{ color: theme.custom.text }}>
           У вас пока нет заказов
         </Text>
-        <Text variant="bodyMedium" style={[styles.emptySubtext, { color: theme.custom.textSecondary }]}>
+        <Text
+          variant="bodyMedium"
+          style={[styles.emptySubtext, { color: theme.custom.textSecondary }]}
+        >
           Создайте свой первый заказ на главной странице
         </Text>
       </View>

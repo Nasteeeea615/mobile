@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Keyboard, TouchableOpacity, Linking } from 'react-native';
 import { Text, Checkbox, Card, useTheme } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useDispatch } from 'react-redux';
 import apiService from '../services/api';
-import { setUser, setToken } from '../store/slices/authSlice';
 import DocumentUploadField from '../components/DocumentUploadField';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
@@ -22,7 +20,7 @@ export default function ExecutorRegistrationScreen() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   // Document upload states
   const [passportPhoto, setPassportPhoto] = useState<string | null>(null);
   const [driverLicensePhoto, setDriverLicensePhoto] = useState<string | null>(null);
@@ -35,7 +33,6 @@ export default function ExecutorRegistrationScreen() {
 
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const dispatch = useDispatch();
   const theme = useTheme<AppTheme>();
 
   const prefillEmail = route.params?.email || '';
@@ -58,7 +55,7 @@ export default function ExecutorRegistrationScreen() {
   const handleRegister = async () => {
     // Dismiss keyboard before validation
     Keyboard.dismiss();
-    
+
     setErrors({});
     setDocumentErrors({
       passport: '',
@@ -116,7 +113,8 @@ export default function ExecutorRegistrationScreen() {
     }
 
     if (!vehicleRegistrationPhoto) {
-      newDocumentErrors.vehicleRegistration = 'Необходимо загрузить фото свидетельства о регистрации ТС';
+      newDocumentErrors.vehicleRegistration =
+        'Необходимо загрузить фото свидетельства о регистрации ТС';
       hasDocumentErrors = true;
     }
 
@@ -153,12 +151,8 @@ export default function ExecutorRegistrationScreen() {
       });
 
       if (response.success && response.data) {
-        const data = response.data as any;
-        dispatch(setToken(data.token));
-        dispatch(setUser(data.user));
-        apiService.setToken(data.token);
-
-        navigation.replace('ExecutorTabs');
+        await apiService.post('/auth/request-code', { email, role: 'executor' });
+        navigation.replace('VerificationCode', { email, role: 'executor' });
       }
     } catch (err: any) {
       // Handle document upload errors specifically
@@ -254,14 +248,16 @@ export default function ExecutorRegistrationScreen() {
         </Text>
 
         {errors.vehicleCapacity && (
-          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.vehicleCapacity}</Text>
+          <Text style={[styles.error, { color: theme.colors.error }]}>
+            {errors.vehicleCapacity}
+          </Text>
         )}
 
         <View style={styles.capacityContainer}>
           <TouchableOpacity
             style={[
               styles.capacityCard,
-              { 
+              {
                 backgroundColor: theme.custom.surface,
                 borderColor: vehicleCapacity === 3 ? theme.custom.primary : theme.custom.border,
                 borderWidth: vehicleCapacity === 3 ? 2 : 1,
@@ -269,7 +265,10 @@ export default function ExecutorRegistrationScreen() {
             ]}
             onPress={() => setVehicleCapacity(3)}
           >
-            <Text variant="headlineMedium" style={[styles.capacityText, { color: theme.custom.text }]}>
+            <Text
+              variant="headlineMedium"
+              style={[styles.capacityText, { color: theme.custom.text }]}
+            >
               3 м³
             </Text>
           </TouchableOpacity>
@@ -277,7 +276,7 @@ export default function ExecutorRegistrationScreen() {
           <TouchableOpacity
             style={[
               styles.capacityCard,
-              { 
+              {
                 backgroundColor: theme.custom.surface,
                 borderColor: vehicleCapacity === 5 ? theme.custom.primary : theme.custom.border,
                 borderWidth: vehicleCapacity === 5 ? 2 : 1,
@@ -285,7 +284,10 @@ export default function ExecutorRegistrationScreen() {
             ]}
             onPress={() => setVehicleCapacity(5)}
           >
-            <Text variant="headlineMedium" style={[styles.capacityText, { color: theme.custom.text }]}>
+            <Text
+              variant="headlineMedium"
+              style={[styles.capacityText, { color: theme.custom.text }]}
+            >
               5 м³
             </Text>
           </TouchableOpacity>
@@ -293,7 +295,7 @@ export default function ExecutorRegistrationScreen() {
           <TouchableOpacity
             style={[
               styles.capacityCard,
-              { 
+              {
                 backgroundColor: theme.custom.surface,
                 borderColor: vehicleCapacity === 10 ? theme.custom.primary : theme.custom.border,
                 borderWidth: vehicleCapacity === 10 ? 2 : 1,
@@ -301,7 +303,10 @@ export default function ExecutorRegistrationScreen() {
             ]}
             onPress={() => setVehicleCapacity(10)}
           >
-            <Text variant="headlineMedium" style={[styles.capacityText, { color: theme.custom.text }]}>
+            <Text
+              variant="headlineMedium"
+              style={[styles.capacityText, { color: theme.custom.text }]}
+            >
               10 м³
             </Text>
           </TouchableOpacity>
@@ -310,14 +315,17 @@ export default function ExecutorRegistrationScreen() {
         <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.text }]}>
           Документы
         </Text>
-        <Text variant="bodySmall" style={[styles.sectionSubtitle, { color: theme.custom.textSecondary }]}>
+        <Text
+          variant="bodySmall"
+          style={[styles.sectionSubtitle, { color: theme.custom.textSecondary }]}
+        >
           Загрузите фотографии документов для верификации
         </Text>
 
         <DocumentUploadField
           label="Фото паспорта"
           value={passportPhoto}
-          onUpload={(uri) => {
+          onUpload={uri => {
             setPassportPhoto(uri);
             setDocumentErrors({ ...documentErrors, passport: '' });
           }}
@@ -330,7 +338,7 @@ export default function ExecutorRegistrationScreen() {
         <DocumentUploadField
           label="Фото водительского удостоверения"
           value={driverLicensePhoto}
-          onUpload={(uri) => {
+          onUpload={uri => {
             setDriverLicensePhoto(uri);
             setDocumentErrors({ ...documentErrors, driverLicense: '' });
           }}
@@ -343,7 +351,7 @@ export default function ExecutorRegistrationScreen() {
         <DocumentUploadField
           label="Фото свидетельства о регистрации ТС"
           value={vehicleRegistrationPhoto}
-          onUpload={(uri) => {
+          onUpload={uri => {
             setVehicleRegistrationPhoto(uri);
             setDocumentErrors({ ...documentErrors, vehicleRegistration: '' });
           }}
@@ -353,33 +361,58 @@ export default function ExecutorRegistrationScreen() {
           errorText={documentErrors.vehicleRegistration}
         />
 
-        <View style={[styles.checkboxContainer, { 
-          backgroundColor: theme.custom.surface,
-          borderColor: theme.custom.border,
-          borderWidth: 1,
-          borderRadius: 8,
-          padding: spacing.md,
-        }]}>
-          <Checkbox
-            status={agreedToTerms ? 'checked' : 'unchecked'}
-            onPress={() => setAgreedToTerms(!agreedToTerms)}
-            disabled={loading}
-            color={theme.custom.primary}
-          />
+        <View
+          style={[
+            styles.checkboxContainer,
+            {
+              backgroundColor: theme.custom.surface,
+              borderColor: theme.custom.border,
+              borderWidth: 1,
+              borderRadius: 8,
+              padding: spacing.md,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.checkboxSquare,
+              {
+                borderColor: errors.terms
+                  ? theme.colors.error
+                  : theme.dark
+                    ? theme.custom.border
+                    : 'rgba(0, 0, 0, 0.45)',
+              },
+            ]}
+          >
+            <Checkbox
+              status={agreedToTerms ? 'checked' : 'unchecked'}
+              onPress={() => setAgreedToTerms(!agreedToTerms)}
+              disabled={loading}
+              color={theme.custom.primary}
+              uncheckedColor={theme.dark ? theme.custom.textSecondary : 'rgba(0, 0, 0, 0.65)'}
+            />
+          </View>
           <Text style={[styles.checkboxLabel, { color: theme.custom.text }]}>
             Я согласен с{' '}
-            <Text 
+            <Text
               style={{ color: theme.custom.primary, textDecorationLine: 'underline' }}
               onPress={() => Linking.openURL('https://example.com/terms')}
             >
-              пользовательским соглашением
+              политикой конфиденциальности
             </Text>
           </Text>
         </View>
 
-        {errors.general && <Text style={[styles.error, { color: theme.colors.error }]}>{errors.general}</Text>}
-        {errors.terms && <Text style={[styles.error, { color: theme.colors.error }]}>{errors.terms}</Text>}
-        {errors.documents && <Text style={[styles.error, { color: theme.colors.error }]}>{errors.documents}</Text>}
+        {errors.general && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.general}</Text>
+        )}
+        {errors.terms && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.terms}</Text>
+        )}
+        {errors.documents && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>{errors.documents}</Text>
+        )}
 
         <CustomButton
           mode="contained"
@@ -453,6 +486,14 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     flex: 1,
     marginLeft: spacing.sm,
+  },
+  checkboxSquare: {
+    width: 28,
+    height: 28,
+    borderWidth: 1,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   error: {
     marginBottom: spacing.sm,

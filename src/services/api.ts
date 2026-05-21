@@ -4,6 +4,8 @@ import { getAuthToken, saveAuthToken, deleteAuthToken } from '../utils/secureSto
 import mockApi, { MOCK_MODE } from './mockApi';
 import { ENV } from '../config/env';
 
+const MOCK_AUTH = false;
+
 const API_URL = ENV.API_URL;
 
 // Типы ошибок для лучшей обработки
@@ -206,6 +208,11 @@ class ApiService {
    * Сохраняет токен в Secure Storage
    */
   public async setToken(token: string): Promise<void> {
+    if (typeof token !== 'string' || token.trim().length === 0) {
+      console.warn('[API] Skip saving invalid token value');
+      return;
+    }
+
     if (MOCK_MODE || MOCK_AUTH) {
       await mockApi.setToken(token);
       return;

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Snackbar } from 'react-native-paper';
+import { Snackbar, Text, useTheme } from 'react-native-paper';
 import { StyleSheet } from 'react-native';
+import { AppTheme } from '../theme';
 
 type SnackbarType = 'success' | 'error' | 'warning' | 'info';
 
@@ -20,6 +21,7 @@ interface SnackbarProviderProps {
  * Использует React Native Paper Snackbar для красивых уведомлений
  */
 export const SnackbarProvider: React.FC<SnackbarProviderProps> = ({ children }) => {
+  const theme = useTheme<AppTheme>();
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState('');
   const [type, setType] = useState<SnackbarType>('info');
@@ -42,15 +44,15 @@ export const SnackbarProvider: React.FC<SnackbarProviderProps> = ({ children }) 
   const getBackgroundColor = () => {
     switch (type) {
       case 'success':
-        return '#4CAF50';
+        return theme.custom.success;
       case 'error':
-        return '#F44336';
+        return theme.custom.danger;
       case 'warning':
-        return '#FF9800';
+        return theme.custom.warning;
       case 'info':
-        return '#2196F3';
+        return theme.custom.info;
       default:
-        return '#323232';
+        return theme.custom.surface;
     }
   };
 
@@ -82,7 +84,9 @@ export const SnackbarProvider: React.FC<SnackbarProviderProps> = ({ children }) 
         }}
         style={[styles.snackbar, { backgroundColor: getBackgroundColor() }]}
       >
-        {getIcon()} {message}
+        <Text>
+          {getIcon()} {message}
+        </Text>
       </Snackbar>
     </SnackbarContext.Provider>
   );
@@ -106,14 +110,10 @@ export const useSnackbarHelpers = () => {
   const { showSnackbar } = useSnackbar();
 
   return {
-    showSuccess: (message: string, duration?: number) =>
-      showSnackbar(message, 'success', duration),
-    showError: (message: string, duration?: number) =>
-      showSnackbar(message, 'error', duration),
-    showWarning: (message: string, duration?: number) =>
-      showSnackbar(message, 'warning', duration),
-    showInfo: (message: string, duration?: number) =>
-      showSnackbar(message, 'info', duration),
+    showSuccess: (message: string, duration?: number) => showSnackbar(message, 'success', duration),
+    showError: (message: string, duration?: number) => showSnackbar(message, 'error', duration),
+    showWarning: (message: string, duration?: number) => showSnackbar(message, 'warning', duration),
+    showInfo: (message: string, duration?: number) => showSnackbar(message, 'info', duration),
   };
 };
 
