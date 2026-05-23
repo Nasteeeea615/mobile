@@ -16,6 +16,7 @@ import EmailInputScreen from '../screens/EmailInputScreen';
 import VerificationCodeScreen from '../screens/VerificationCodeScreen';
 import RegistrationScreen from '../screens/RegistrationScreen';
 import ExecutorRegistrationScreen from '../screens/ExecutorRegistrationScreen';
+import PendingExecutorApprovalScreen from '../screens/PendingExecutorApprovalScreen';
 
 // Tab Navigators
 import ClientTabNavigator from './ClientTabNavigator';
@@ -103,6 +104,11 @@ export default function AppNavigator() {
           name="ExecutorRegistration"
           component={ExecutorRegistrationScreen}
           options={{ title: 'Регистрация исполнителя' }}
+        />
+        <Stack.Screen
+          name="PendingExecutorApproval"
+          component={PendingExecutorApprovalScreen}
+          options={{ title: 'Проверка аккаунта' }}
         />
 
         {/* Client Tab Navigator */}

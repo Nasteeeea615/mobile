@@ -50,13 +50,29 @@ export default function VerificationCodeScreen() {
         dispatch(setUser(data.user));
         await apiService.setToken(data.token);
 
-        if (data.user?.role === 'executor') {
+        const executorProfile = data.user?.executorProfile || data.user?.executor_profile;
+        const isExecutorWaitingForApproval =
+          data.user?.role === 'executor' && executorProfile && !executorProfile.is_verified;
+
+        if (isExecutorWaitingForApproval) {
+          navigation.reset({ index: 0, routes: [{ name: 'PendingExecutorApproval' }] });
+        } else if (data.user?.role === 'executor') {
           navigation.reset({ index: 0, routes: [{ name: 'ExecutorTabs' }] });
         } else {
           navigation.reset({ index: 0, routes: [{ name: 'ClientTabs' }] });
         }
       }
     } catch (err: any) {
+      if (err.code === 'USER_NOT_FOUND') {
+        if (role === 'executor') {
+          navigation.replace('ExecutorRegistration', { email });
+          return;
+        }
+
+        navigation.replace('Registration', { email });
+        return;
+      }
+
       setError(err.message || 'Неверный или просроченный код');
     } finally {
       setLoading(false);
