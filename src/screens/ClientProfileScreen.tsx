@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Divider, useTheme } from 'react-native-paper';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, Divider, IconButton, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { logout, setUser } from '../store/slices/authSlice';
+import { toggleTheme } from '../store/themeSlice';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomButton from '../components/CustomButton';
 import CustomCard from '../components/CustomCard';
+import { useSnackbarHelpers } from '../components/SnackbarProvider';
 import apiService from '../services/api';
-import { spacing } from '../theme/theme';
+import { AppTheme, spacing } from '../theme/theme';
+import { USER_AGREEMENT, PRIVACY_POLICY, PERSONAL_DATA_CONSENT } from '../constants/documents';
 
 export default function ClientProfileScreen() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -21,8 +24,10 @@ export default function ClientProfileScreen() {
 
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
-  const theme = useTheme();
+  const theme = useTheme<AppTheme>();
+  const { showError } = useSnackbarHelpers();
   const user = useSelector((state: any) => state.auth.user);
+  const isDark = useSelector((state: RootState) => state.theme.isDark);
 
   // Проверка регистрации как исполнитель
   useEffect(() => {
@@ -37,7 +42,7 @@ export default function ClientProfileScreen() {
         setIsExecutor((response.data as any).isRegistered);
       }
     } catch (error) {
-      console.error('Error checking executor registration:', error);
+      console.error('Ошибка проверки регистрации исполнителя:', error);
     } finally {
       setCheckingRole(false);
     }
@@ -71,9 +76,9 @@ export default function ClientProfileScreen() {
         // Обновить токен и пользователя
         await apiService.setToken(data.token);
         dispatch(setUser(data.user));
-        
+
         setShowSwitchRoleModal(false);
-        
+
         // Перейти на профиль исполнителя
         navigation.reset({
           index: 0,
@@ -81,8 +86,8 @@ export default function ClientProfileScreen() {
         });
       }
     } catch (error: any) {
-      console.error('Switch role error:', error);
-      Alert.alert('Ошибка', error.message || 'Не удалось переключить роль');
+      console.error('Ошибка переключения роли:', error);
+      showError(error.message || 'Не удалось переключить роль');
     } finally {
       setLoading(false);
     }
@@ -100,7 +105,7 @@ export default function ClientProfileScreen() {
         routes: [{ name: 'EmailInput' }],
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Ошибка выхода из аккаунта:', error);
     } finally {
       setLoading(false);
     }
@@ -118,8 +123,8 @@ export default function ClientProfileScreen() {
         routes: [{ name: 'EmailInput' }],
       });
     } catch (error: any) {
-      console.error('Delete account error:', error);
-      Alert.alert('Ошибка', error.message || 'Не удалось удалить аккаунт');
+      console.error('Ошибка удаления аккаунта:', error);
+      showError(error.message || 'Не удалось удалить аккаунт');
     } finally {
       setLoading(false);
     }
@@ -132,19 +137,33 @@ export default function ClientProfileScreen() {
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.scrollContent}
     >
+      <View style={styles.topActions}>
+        <IconButton
+          onPress={() => dispatch(toggleTheme())}
+          icon={isDark ? 'weather-sunny' : 'weather-night'}
+          mode="outlined"
+          size={20}
+          accessibilityLabel={isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'}
+          style={styles.themeButton}
+        />
+      </View>
+
       {/* User Info Card */}
       <CustomCard style={styles.userCard}>
         <Text variant="titleLarge" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
           Личная информация
         </Text>
-        
+
         <View style={styles.infoSection}>
           <View style={styles.infoItem}>
-            <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+            <Text
+              variant="labelMedium"
+              style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+            >
               Имя
             </Text>
             <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
@@ -155,7 +174,10 @@ export default function ClientProfileScreen() {
           <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
 
           <View style={styles.infoItem}>
-            <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+            <Text
+              variant="labelMedium"
+              style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+            >
               Номер телефона
             </Text>
             <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
@@ -166,7 +188,10 @@ export default function ClientProfileScreen() {
           <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
 
           <View style={styles.infoItem}>
-            <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+            <Text
+              variant="labelMedium"
+              style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+            >
               Email
             </Text>
             <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
@@ -176,13 +201,26 @@ export default function ClientProfileScreen() {
 
           {(user?.city || user?.clientProfile) && (
             <>
-              <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+              <Divider
+                style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]}
+              />
               <View style={styles.infoItem}>
-                <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                <Text
+                  variant="labelMedium"
+                  style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+                >
                   Адрес
                 </Text>
-                <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
-                  {user?.city || user?.clientProfile?.city}, {user?.street || user?.clientProfile?.street}, д. {user?.houseNumber || user?.house_number || user?.clientProfile?.houseNumber || user?.clientProfile?.house_number}
+                <Text
+                  variant="bodyLarge"
+                  style={[styles.infoValue, { color: theme.colors.onSurface }]}
+                >
+                  {user?.city || user?.clientProfile?.city},{' '}
+                  {user?.street || user?.clientProfile?.street}, д.{' '}
+                  {user?.houseNumber ||
+                    user?.house_number ||
+                    user?.clientProfile?.houseNumber ||
+                    user?.clientProfile?.house_number}
                 </Text>
               </View>
             </>
@@ -192,15 +230,24 @@ export default function ClientProfileScreen() {
 
       {/* Action Buttons */}
       <View style={styles.section}>
+        {isExecutor && (
+          <Text
+            variant="bodyMedium"
+            style={[styles.roleHint, { color: theme.custom.textSecondary }]}
+          >
+            Доступен второй аккаунт: исполнитель
+          </Text>
+        )}
+
         <CustomButton
           mode="contained"
           variant="primary"
           onPress={handleBecomeExecutor}
           style={styles.actionButton}
-          icon="truck"
+          icon={isExecutor ? 'swap-horizontal' : 'truck'}
           loading={checkingRole}
         >
-          Хочу стать исполнителем
+          {isExecutor ? 'Перейти в аккаунт исполнителя' : 'Стать исполнителем'}
         </CustomButton>
 
         <CustomButton
@@ -231,6 +278,40 @@ export default function ClientProfileScreen() {
           icon="delete"
         >
           Удалить аккаунт
+        </CustomButton>
+      </View>
+
+      {/* О сервисе */}
+      <View style={styles.section}>
+        <Text variant="titleSmall" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
+          О сервисе
+        </Text>
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={() => navigation.navigate('LegalDocument' as never, { document: USER_AGREEMENT } as never)}
+          style={styles.docButton}
+          icon="file-document-outline"
+        >
+          Пользовательское соглашение
+        </CustomButton>
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={() => navigation.navigate('LegalDocument' as never, { document: PRIVACY_POLICY } as never)}
+          style={styles.docButton}
+          icon="shield-lock-outline"
+        >
+          Политика конфиденциальности
+        </CustomButton>
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={() => navigation.navigate('LegalDocument' as never, { document: PERSONAL_DATA_CONSENT } as never)}
+          style={styles.docButton}
+          icon="clipboard-check-outline"
+        >
+          Согласие на обработку ПД
         </CustomButton>
       </View>
 
@@ -279,6 +360,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
+  topActions: {
+    alignItems: 'flex-end',
+    marginBottom: spacing.sm,
+  },
+  themeButton: {
+    marginRight: 0,
+  },
   userCard: {
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -308,7 +396,19 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.md,
   },
+  roleHint: {
+    marginBottom: spacing.sm,
+  },
   actionButton: {
     marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  docButton: {
+    marginBottom: 0,
+    alignSelf: 'flex-start',
   },
 });

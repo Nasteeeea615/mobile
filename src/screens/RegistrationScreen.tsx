@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Keyboard, Linking } from 'react-native';
+import { View, StyleSheet, Keyboard } from 'react-native';
 import { Text, Checkbox, useTheme } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import apiService from '../services/api';
@@ -7,6 +7,7 @@ import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
 import KeyboardDismissWrapper from '../components/KeyboardDismissWrapper';
 import { AppTheme, spacing } from '../theme';
+import { USER_AGREEMENT, PRIVACY_POLICY, PERSONAL_DATA_CONSENT } from '../constants/documents';
 
 export default function RegistrationScreen() {
   const [email, setEmail] = useState('');
@@ -244,12 +245,26 @@ export default function RegistrationScreen() {
           />
         </View>
         <Text style={[styles.checkboxLabel, { color: theme.custom.text }]}>
-          Я согласен с{' '}
+          Я ознакомлен(а) и согласен(на) с{' '}
           <Text
             style={{ color: theme.custom.primary, textDecorationLine: 'underline' }}
-            onPress={() => Linking.openURL('https://example.com/terms')}
+            onPress={() => navigation.navigate('LegalDocument' as never, { document: USER_AGREEMENT } as never)}
           >
-            политикой конфиденциальности
+            Пользовательским соглашением
+          </Text>
+          ,{' '}
+          <Text
+            style={{ color: theme.custom.primary, textDecorationLine: 'underline' }}
+            onPress={() => navigation.navigate('LegalDocument' as never, { document: PRIVACY_POLICY } as never)}
+          >
+            Политикой конфиденциальности
+          </Text>
+          {' '}и{' '}
+          <Text
+            style={{ color: theme.custom.primary, textDecorationLine: 'underline' }}
+            onPress={() => navigation.navigate('LegalDocument' as never, { document: PERSONAL_DATA_CONSENT } as never)}
+          >
+            Согласием на обработку персональных данных
           </Text>
         </Text>
       </View>

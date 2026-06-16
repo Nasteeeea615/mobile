@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Image } from 'react-native';
-import { Text, Divider, useTheme, SegmentedButtons } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Image } from 'react-native';
+import { Text, Divider, IconButton, useTheme, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../store';
 import { logout, setUser } from '../store/slices/authSlice';
+import { toggleTheme } from '../store/themeSlice';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomButton from '../components/CustomButton';
 import CustomCard from '../components/CustomCard';
+import { useSnackbarHelpers } from '../components/SnackbarProvider';
 import apiService from '../services/api';
-import { spacing, containerShadows } from '../theme/theme';
+import { AppTheme, spacing, containerShadows } from '../theme/theme';
+import { USER_AGREEMENT, PRIVACY_POLICY, PERSONAL_DATA_CONSENT } from '../constants/documents';
 
 export default function ExecutorProfileScreen() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -22,22 +26,19 @@ export default function ExecutorProfileScreen() {
 
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
-  const theme = useTheme();
+  const theme = useTheme<AppTheme>();
+  const { showError } = useSnackbarHelpers();
   const user = useSelector((state: any) => state.auth.user);
+  const isDark = useSelector((state: RootState) => state.theme.isDark);
 
   // Данные автомобиля могут быть в executorProfile или напрямую в user
-  const executorProfile = user?.executorProfile || user?.executor_profile || {
-    vehicleNumber: user?.vehicle_number,
-    vehicleCapacity: user?.vehicle_capacity,
-    documents: user?.documents,
-  };
-
-  // Debug: выводим данные профиля
-  useEffect(() => {
-    console.log('=== ExecutorProfile Debug ===');
-    console.log('User:', JSON.stringify(user, null, 2));
-    console.log('ExecutorProfile:', JSON.stringify(executorProfile, null, 2));
-  }, [user, executorProfile]);
+  const executorProfile = user?.executorProfile ||
+    user?.executor_profile || {
+      vehicleNumber: user?.vehicle_number,
+      vehicleCapacity: user?.vehicle_capacity,
+      documents: user?.documents,
+    };
+  const executorDocuments = executorProfile?.documents || user?.documents;
 
   // Проверка регистрации как заказчик
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function ExecutorProfileScreen() {
         setIsClient((response.data as any).isRegistered);
       }
     } catch (error) {
-      console.error('Error checking client registration:', error);
+      console.error('Ошибка проверки регистрации заказчика:', error);
     } finally {
       setCheckingRole(false);
     }
@@ -86,9 +87,9 @@ export default function ExecutorProfileScreen() {
         // Обновить токен и пользователя
         await apiService.setToken(data.token);
         dispatch(setUser(data.user));
-        
+
         setShowSwitchRoleModal(false);
-        
+
         // Перейти на профиль заказчика
         navigation.reset({
           index: 0,
@@ -96,8 +97,8 @@ export default function ExecutorProfileScreen() {
         });
       }
     } catch (error: any) {
-      console.error('Switch role error:', error);
-      Alert.alert('Ошибка', error.message || 'Не удалось переключить роль');
+      console.error('Ошибка переключения роли:', error);
+      showError(error.message || 'Не удалось переключить роль');
     } finally {
       setLoading(false);
     }
@@ -115,7 +116,7 @@ export default function ExecutorProfileScreen() {
         routes: [{ name: 'EmailInput' }],
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Ошибка выхода из аккаунта:', error);
     } finally {
       setLoading(false);
     }
@@ -133,8 +134,8 @@ export default function ExecutorProfileScreen() {
         routes: [{ name: 'EmailInput' }],
       });
     } catch (error: any) {
-      console.error('Delete account error:', error);
-      Alert.alert('Ошибка', error.message || 'Не удалось удалить аккаунт');
+      console.error('Ошибка удаления аккаунта:', error);
+      showError(error.message || 'Не удалось удалить аккаунт');
     } finally {
       setLoading(false);
     }
@@ -155,15 +156,26 @@ export default function ExecutorProfileScreen() {
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.scrollContent}
     >
+      <View style={styles.topActions}>
+        <IconButton
+          onPress={() => dispatch(toggleTheme())}
+          icon={isDark ? 'weather-sunny' : 'weather-night'}
+          mode="outlined"
+          size={20}
+          accessibilityLabel={isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'}
+          style={styles.themeButton}
+        />
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         <SegmentedButtons
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'personal' | 'vehicle')}
+          onValueChange={value => setActiveTab(value as 'personal' | 'vehicle')}
           buttons={[
             {
               value: 'personal',
@@ -186,13 +198,19 @@ export default function ExecutorProfileScreen() {
           <Text variant="titleLarge" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
             Личная информация
           </Text>
-          
+
           <View style={styles.infoSection}>
             <View style={styles.infoItem}>
-              <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+              <Text
+                variant="labelMedium"
+                style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+              >
                 Имя
               </Text>
-              <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+              <Text
+                variant="bodyLarge"
+                style={[styles.infoValue, { color: theme.colors.onSurface }]}
+              >
                 {user?.name || 'Не указано'}
               </Text>
             </View>
@@ -200,10 +218,16 @@ export default function ExecutorProfileScreen() {
             <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
 
             <View style={styles.infoItem}>
-              <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+              <Text
+                variant="labelMedium"
+                style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+              >
                 Номер телефона
               </Text>
-              <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+              <Text
+                variant="bodyLarge"
+                style={[styles.infoValue, { color: theme.colors.onSurface }]}
+              >
                 {user?.phoneNumber || user?.phone_number || 'Не указано'}
               </Text>
             </View>
@@ -211,10 +235,16 @@ export default function ExecutorProfileScreen() {
             <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
 
             <View style={styles.infoItem}>
-              <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+              <Text
+                variant="labelMedium"
+                style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+              >
                 Почта
               </Text>
-              <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+              <Text
+                variant="bodyLarge"
+                style={[styles.infoValue, { color: theme.colors.onSurface }]}
+              >
                 {user?.email || 'Не указано'}
               </Text>
             </View>
@@ -228,85 +258,166 @@ export default function ExecutorProfileScreen() {
           <Text variant="titleLarge" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
             Данные автомобиля
           </Text>
-          
-          {(executorProfile?.vehicleNumber || executorProfile?.vehicle_number || user?.vehicle_number) ? (
+
+          {executorProfile?.vehicleNumber ||
+          executorProfile?.vehicle_number ||
+          user?.vehicle_number ? (
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
-                <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                <Text
+                  variant="labelMedium"
+                  style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+                >
                   Номер машины
                 </Text>
-                <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
-                  {executorProfile?.vehicleNumber || executorProfile?.vehicle_number || user?.vehicle_number || 'Не указано'}
+                <Text
+                  variant="bodyLarge"
+                  style={[styles.infoValue, { color: theme.colors.onSurface }]}
+                >
+                  {executorProfile?.vehicleNumber ||
+                    executorProfile?.vehicle_number ||
+                    user?.vehicle_number ||
+                    'Не указано'}
                 </Text>
               </View>
 
-              <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+              <Divider
+                style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]}
+              />
 
               <View style={styles.infoItem}>
-                <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                <Text
+                  variant="labelMedium"
+                  style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+                >
                   Объем машины
                 </Text>
-                <Text variant="bodyLarge" style={[styles.infoValue, { color: theme.colors.onSurface }]}>
-                  {executorProfile?.vehicleCapacity || executorProfile?.vehicle_capacity || user?.vehicle_capacity || 'Не указано'} м³
+                <Text
+                  variant="bodyLarge"
+                  style={[styles.infoValue, { color: theme.colors.onSurface }]}
+                >
+                  {executorProfile?.vehicleCapacity ||
+                    executorProfile?.vehicle_capacity ||
+                    user?.vehicle_capacity ||
+                    'Не указано'}{' '}
+                  м³
                 </Text>
               </View>
 
               {/* Documents Gallery */}
-              {(executorProfile?.documents || user?.documents) && (
+              {executorDocuments && (
                 <>
-                  <Divider style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]} />
+                  <Divider
+                    style={[styles.divider, { backgroundColor: (theme as any).custom.divider }]}
+                  />
                   <View style={styles.documentsSection}>
-                    <Text variant="labelMedium" style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}>
+                    <Text
+                      variant="labelMedium"
+                      style={[styles.infoLabel, { color: (theme as any).custom.textSecondary }]}
+                    >
                       Фото документов
                     </Text>
-                    
+
                     <View style={styles.documentsGallery}>
                       {/* Passport */}
-                      {((executorProfile?.documents || user?.documents)?.passportPhoto || (executorProfile?.documents || user?.documents)?.passport_photo) && (
-                        <TouchableOpacity 
+                      {(executorDocuments?.passportPhoto || executorDocuments?.passport_photo) && (
+                        <TouchableOpacity
                           style={styles.documentThumbnail}
-                          onPress={() => openDocumentFullscreen((executorProfile?.documents || user?.documents).passportPhoto || (executorProfile?.documents || user?.documents).passport_photo)}
+                          onPress={() =>
+                            openDocumentFullscreen(
+                              executorDocuments?.passportPhoto ||
+                                executorDocuments?.passport_photo ||
+                                ''
+                            )
+                          }
                         >
                           <Image
-                            source={{ uri: (executorProfile?.documents || user?.documents).passportPhoto || (executorProfile?.documents || user?.documents).passport_photo }}
-                            style={styles.thumbnailImage}
+                            source={{
+                              uri:
+                                executorDocuments?.passportPhoto ||
+                                executorDocuments?.passport_photo ||
+                                '',
+                            }}
+                            style={[
+                              styles.thumbnailImage,
+                              { backgroundColor: theme.custom.divider },
+                            ]}
                             resizeMode="cover"
                           />
-                          <Text variant="bodySmall" style={styles.thumbnailLabel}>
+                          <Text
+                            variant="bodySmall"
+                            style={[styles.thumbnailLabel, { color: theme.custom.text }]}
+                          >
                             Паспорт
                           </Text>
                         </TouchableOpacity>
                       )}
 
                       {/* Driver License */}
-                      {((executorProfile?.documents || user?.documents)?.driverLicensePhoto || (executorProfile?.documents || user?.documents)?.driver_license_photo) && (
-                        <TouchableOpacity 
+                      {(executorDocuments?.driverLicensePhoto ||
+                        executorDocuments?.driver_license_photo) && (
+                        <TouchableOpacity
                           style={styles.documentThumbnail}
-                          onPress={() => openDocumentFullscreen((executorProfile?.documents || user?.documents).driverLicensePhoto || (executorProfile?.documents || user?.documents).driver_license_photo)}
+                          onPress={() =>
+                            openDocumentFullscreen(
+                              executorDocuments?.driverLicensePhoto ||
+                                executorDocuments?.driver_license_photo ||
+                                ''
+                            )
+                          }
                         >
                           <Image
-                            source={{ uri: (executorProfile?.documents || user?.documents).driverLicensePhoto || (executorProfile?.documents || user?.documents).driver_license_photo }}
-                            style={styles.thumbnailImage}
+                            source={{
+                              uri:
+                                executorDocuments?.driverLicensePhoto ||
+                                executorDocuments?.driver_license_photo ||
+                                '',
+                            }}
+                            style={[
+                              styles.thumbnailImage,
+                              { backgroundColor: theme.custom.divider },
+                            ]}
                             resizeMode="cover"
                           />
-                          <Text variant="bodySmall" style={styles.thumbnailLabel}>
+                          <Text
+                            variant="bodySmall"
+                            style={[styles.thumbnailLabel, { color: theme.custom.text }]}
+                          >
                             Водит. удост.
                           </Text>
                         </TouchableOpacity>
                       )}
 
                       {/* Vehicle Registration */}
-                      {((executorProfile?.documents || user?.documents)?.vehicleRegistrationPhoto || (executorProfile?.documents || user?.documents)?.vehicle_registration_photo) && (
-                        <TouchableOpacity 
+                      {(executorDocuments?.vehicleRegistrationPhoto ||
+                        executorDocuments?.vehicle_registration_photo) && (
+                        <TouchableOpacity
                           style={styles.documentThumbnail}
-                          onPress={() => openDocumentFullscreen((executorProfile?.documents || user?.documents).vehicleRegistrationPhoto || (executorProfile?.documents || user?.documents).vehicle_registration_photo)}
+                          onPress={() =>
+                            openDocumentFullscreen(
+                              executorDocuments?.vehicleRegistrationPhoto ||
+                                executorDocuments?.vehicle_registration_photo ||
+                                ''
+                            )
+                          }
                         >
                           <Image
-                            source={{ uri: (executorProfile?.documents || user?.documents).vehicleRegistrationPhoto || (executorProfile?.documents || user?.documents).vehicle_registration_photo }}
-                            style={styles.thumbnailImage}
+                            source={{
+                              uri:
+                                executorDocuments?.vehicleRegistrationPhoto ||
+                                executorDocuments?.vehicle_registration_photo ||
+                                '',
+                            }}
+                            style={[
+                              styles.thumbnailImage,
+                              { backgroundColor: theme.custom.divider },
+                            ]}
                             resizeMode="cover"
                           />
-                          <Text variant="bodySmall" style={styles.thumbnailLabel}>
+                          <Text
+                            variant="bodySmall"
+                            style={[styles.thumbnailLabel, { color: theme.custom.text }]}
+                          >
                             Рег. ТС
                           </Text>
                         </TouchableOpacity>
@@ -317,7 +428,14 @@ export default function ExecutorProfileScreen() {
               )}
             </View>
           ) : (
-            <Text variant="bodyMedium" style={{ color: (theme as any).custom.textSecondary, textAlign: 'center', paddingVertical: spacing.lg }}>
+            <Text
+              variant="bodyMedium"
+              style={{
+                color: (theme as any).custom.textSecondary,
+                textAlign: 'center',
+                paddingVertical: spacing.lg,
+              }}
+            >
               Данные автомобиля не найдены
             </Text>
           )}
@@ -326,6 +444,15 @@ export default function ExecutorProfileScreen() {
 
       {/* Action Buttons */}
       <View style={styles.section}>
+        {isClient && (
+          <Text
+            variant="bodyMedium"
+            style={[styles.roleHint, { color: theme.custom.textSecondary }]}
+          >
+            Доступен второй аккаунт: заказчик
+          </Text>
+        )}
+
         <CustomButton
           mode="contained"
           variant="primary"
@@ -342,7 +469,7 @@ export default function ExecutorProfileScreen() {
           style={styles.actionButton}
           loading={checkingRole}
         >
-          Перейти в режим заказчика
+          {isClient ? 'Перейти в аккаунт заказчика' : 'Зарегистрироваться как заказчик'}
         </CustomButton>
 
         <CustomButton
@@ -373,6 +500,40 @@ export default function ExecutorProfileScreen() {
         </CustomButton>
       </View>
 
+      {/* О сервисе */}
+      <View style={styles.section}>
+        <Text variant="titleSmall" style={[styles.sectionTitle, { color: theme.custom.textSecondary }]}>
+          О сервисе
+        </Text>
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={() => navigation.navigate('LegalDocument' as never, { document: USER_AGREEMENT } as never)}
+          style={styles.docButton}
+          icon="file-document-outline"
+        >
+          Пользовательское соглашение
+        </CustomButton>
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={() => navigation.navigate('LegalDocument' as never, { document: PRIVACY_POLICY } as never)}
+          style={styles.docButton}
+          icon="shield-lock-outline"
+        >
+          Политика конфиденциальности
+        </CustomButton>
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={() => navigation.navigate('LegalDocument' as never, { document: PERSONAL_DATA_CONSENT } as never)}
+          style={styles.docButton}
+          icon="clipboard-check-outline"
+        >
+          Согласие на обработку ПД
+        </CustomButton>
+      </View>
+
       {/* Document Fullscreen Modal */}
       <Modal
         visible={!!selectedDocument}
@@ -380,13 +541,10 @@ export default function ExecutorProfileScreen() {
         onRequestClose={closeDocumentFullscreen}
         animationType="fade"
       >
-        <View style={styles.fullscreenModal}>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={closeDocumentFullscreen}
-          >
-            <View style={styles.closeButtonCircle}>
-              <Text style={styles.closeButtonText}>✕</Text>
+        <View style={[styles.fullscreenModal, { backgroundColor: theme.custom.overlay }]}>
+          <TouchableOpacity style={styles.closeButton} onPress={closeDocumentFullscreen}>
+            <View style={[styles.closeButtonCircle, { backgroundColor: theme.custom.surface }]}>
+              <Text style={[styles.closeButtonText, { color: theme.custom.text }]}>✕</Text>
             </View>
           </TouchableOpacity>
           {selectedDocument && (
@@ -444,6 +602,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
+  topActions: {
+    alignItems: 'flex-end',
+    marginBottom: spacing.sm,
+  },
+  themeButton: {
+    marginRight: 0,
+  },
   tabsContainer: {
     marginBottom: spacing.md,
   },
@@ -494,7 +659,6 @@ const styles = StyleSheet.create({
   thumbnailImage: {
     width: '100%',
     height: 100,
-    backgroundColor: '#F5F5F5',
   },
   thumbnailLabel: {
     padding: spacing.xs,
@@ -503,7 +667,6 @@ const styles = StyleSheet.create({
   },
   fullscreenModal: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -517,12 +680,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
   },
@@ -533,7 +694,19 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.md,
   },
+  roleHint: {
+    marginBottom: spacing.sm,
+  },
   actionButton: {
     marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  docButton: {
+    marginBottom: 0,
+    alignSelf: 'flex-start',
   },
 });

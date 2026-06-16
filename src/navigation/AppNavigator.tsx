@@ -30,6 +30,9 @@ import TicketHistoryScreen from '../screens/TicketHistoryScreen';
 import TicketDetailsScreen from '../screens/TicketDetailsScreen';
 import ExecutorBalanceScreen from '../screens/ExecutorBalanceScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import PushTestScreen from '../screens/PushTestScreen';
+import LegalDocumentScreen from '../screens/LegalDocumentScreen';
+import NotificationHandler from '../components/NotificationHandler';
 
 const Stack = createNativeStackNavigator();
 
@@ -65,6 +68,7 @@ export default function AppNavigator() {
         }
       }}
     >
+      <NotificationHandler />
       <Stack.Navigator
         initialRouteName="EmailInput"
         screenOptions={{
@@ -177,6 +181,12 @@ export default function AppNavigator() {
           name="EditProfile"
           component={EditProfileScreen}
           options={{ title: 'Редактирование профиля' }}
+        />
+        <Stack.Screen name="PushTest" component={PushTestScreen} options={{ title: 'Push Test' }} />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={({ route }: any) => ({ title: route.params?.document?.title || 'Документ' })}
         />
       </Stack.Navigator>
     </NavigationContainer>
