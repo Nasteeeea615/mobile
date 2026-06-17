@@ -76,20 +76,14 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
 
       // Validate file format (JPEG, PNG only)
       if (!fileType.includes('jpeg') && !fileType.includes('jpg') && !fileType.includes('png')) {
-        Alert.alert(
-          'Неподдерживаемый формат',
-          'Поддерживаются только JPEG и PNG форматы.'
-        );
+        Alert.alert('Неподдерживаемый формат', 'Поддерживаются только JPEG и PNG форматы.');
         return false;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (fileSize > maxSize) {
-        Alert.alert(
-          'Файл слишком большой',
-          'Размер файла не должен превышать 5MB.'
-        );
+        Alert.alert('Файл слишком большой', 'Размер файла не должен превышать 5MB.');
         return false;
       }
 
@@ -106,13 +100,17 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
       // Manipulate image to compress and resize
       const manipResult = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1920 } }], // Resize to max width 1920px, height auto-calculated
+        [{ resize: { width: 1280 } }], // Resize to max width 1280px, height auto-calculated
         {
-          compress: 0.7, // Compress to 70% quality
+          compress: 0.6, // Compress to 60% quality
           format: ImageManipulator.SaveFormat.JPEG,
+          base64: true, // need the bytes themselves so the server can store/show the photo
         }
       );
-      return manipResult.uri;
+      // Return a data URI (actual image), not a file:// path the backend can't read.
+      return manipResult.base64
+        ? `data:image/jpeg;base64,${manipResult.base64}`
+        : manipResult.uri;
     } catch (error) {
       console.error('Error compressing image:', error);
       // If compression fails, return original URI
@@ -122,7 +120,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
 
   const pickImageFromCamera = async () => {
     setShowPicker(false);
-    
+
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
 
@@ -136,7 +134,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        
+
         // Validate image
         const isValid = await validateAndProcessImage(uri);
         if (!isValid) return;
@@ -153,7 +151,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
 
   const pickImageFromGallery = async () => {
     setShowPicker(false);
-    
+
     const hasPermission = await requestMediaLibraryPermission();
     if (!hasPermission) return;
 
@@ -167,7 +165,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        
+
         // Validate image
         const isValid = await validateAndProcessImage(uri);
         if (!isValid) return;
@@ -189,7 +187,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
           options: ['Отмена', 'Сделать фото', 'Выбрать из галереи'],
           cancelButtonIndex: 0,
         },
-        (buttonIndex) => {
+        buttonIndex => {
           if (buttonIndex === 1) {
             pickImageFromCamera();
           } else if (buttonIndex === 2) {
@@ -207,7 +205,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
       {/* Label */}
       <Text style={[styles.label, { color: colors.text }]}>
         {label}
-        {required && <Text style={styles.required}> *</Text>}
+        {required && <Text style={[styles.required, { color: colors.danger }]}> *</Text>}
       </Text>
 
       {/* Upload Area */}
@@ -217,7 +215,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
             styles.uploadArea,
             {
               backgroundColor: colors.inputBackground,
-              borderColor: error ? '#FF0000' : colors.inputBorder,
+              borderColor: error ? colors.danger : colors.inputBorder,
             },
             containerShadows.card,
           ]}
@@ -265,7 +263,7 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
 
       {/* Error Message */}
       {error && errorText && (
-        <Text style={styles.errorText}>{errorText}</Text>
+        <Text style={[styles.errorText, { color: colors.danger }]}>{errorText}</Text>
       )}
 
       {/* Picker Modal for Android */}
@@ -273,64 +271,34 @@ const DocumentUploadField: React.FC<DocumentUploadFieldProps> = ({
         <Modal
           visible={showPicker}
           onDismiss={() => setShowPicker(false)}
-          contentContainerStyle={[
-            styles.modalContent,
-            { backgroundColor: colors.surface },
-          ]}
+          contentContainerStyle={[styles.modalContent, { backgroundColor: colors.surface }]}
         >
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Выберите источник
-          </Text>
-          
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Выберите источник</Text>
+
           <TouchableOpacity
-            style={[
-              styles.modalOption,
-              { borderBottomColor: colors.border },
-            ]}
+            style={[styles.modalOption, { borderBottomColor: colors.border }]}
             onPress={pickImageFromCamera}
           >
-            <IconButton
-              icon="camera"
-              size={24}
-              iconColor={colors.text}
-              style={styles.modalIcon}
-            />
-            <Text style={[styles.modalOptionText, { color: colors.text }]}>
-              Сделать фото
-            </Text>
+            <IconButton icon="camera" size={24} iconColor={colors.text} style={styles.modalIcon} />
+            <Text style={[styles.modalOptionText, { color: colors.text }]}>Сделать фото</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.modalOption,
-              { borderBottomColor: colors.border },
-            ]}
+            style={[styles.modalOption, { borderBottomColor: colors.border }]}
             onPress={pickImageFromGallery}
           >
-            <IconButton
-              icon="image"
-              size={24}
-              iconColor={colors.text}
-              style={styles.modalIcon}
-            />
-            <Text style={[styles.modalOptionText, { color: colors.text }]}>
-              Выбрать из галереи
-            </Text>
+            <IconButton icon="image" size={24} iconColor={colors.text} style={styles.modalIcon} />
+            <Text style={[styles.modalOptionText, { color: colors.text }]}>Выбрать из галереи</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.modalOption}
-            onPress={() => setShowPicker(false)}
-          >
+          <TouchableOpacity style={styles.modalOption} onPress={() => setShowPicker(false)}>
             <IconButton
               icon="close"
               size={24}
               iconColor={colors.textSecondary}
               style={styles.modalIcon}
             />
-            <Text style={[styles.modalOptionText, { color: colors.textSecondary }]}>
-              Отмена
-            </Text>
+            <Text style={[styles.modalOptionText, { color: colors.textSecondary }]}>Отмена</Text>
           </TouchableOpacity>
         </Modal>
       </Portal>
@@ -348,7 +316,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   required: {
-    color: '#FF0000',
+    color: 'transparent',
   },
   uploadArea: {
     height: 200,
@@ -391,7 +359,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: '#FF0000',
+    color: 'transparent',
     fontSize: 12,
     marginTop: spacing.xs,
   },
