@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1035437449867",
+    "project_id": "septic-df8fe",
+    "storage_bucket": "septic-df8fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1035437449867:android:acce5c7d1fc1fd1dec2a8e",
+        "android_client_info": {
+          "package_name": "com.septikservice.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKwA4PMxOydCKpPV0r0dDcCMTrKAMpNak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
