@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { Text, useTheme, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import apiService from '../services/api';
@@ -13,6 +13,7 @@ import { useSnackbarHelpers } from '../components/SnackbarProvider';
 export default function EmailInputScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'client' | 'executor'>('client');
   const [loading, setLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,6 +25,15 @@ export default function EmailInputScreen() {
   const validateEmail = (value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(value);
+  };
+
+  // Send a would-be registrant to the right registration screen for their role.
+  const goToRegistration = () => {
+    if (role === 'executor') {
+      navigation.navigate('ExecutorRegistration', { email });
+    } else {
+      navigation.navigate('Registration', { email });
+    }
   };
 
   // Route the user to the right place once we have a token + user object.
@@ -62,13 +72,14 @@ export default function EmailInputScreen() {
       const response = await apiService.post('/auth/login-password', {
         email: email.trim().toLowerCase(),
         password,
+        role,
       });
       if (response.success && response.data) {
         await enterApp(response.data);
       }
     } catch (err: any) {
-      if (err.code === 'USER_NOT_FOUND') {
-        navigation.navigate('Registration', { email });
+      if (err.code === 'USER_NOT_FOUND' || err.code === 'NOT_REGISTERED') {
+        goToRegistration();
       } else if (err.code === 'INVALID_CREDENTIALS') {
         setError('Неверный email или пароль. Можно войти по коду из почты.');
       } else {
@@ -89,17 +100,17 @@ export default function EmailInputScreen() {
 
     setCodeLoading(true);
     try {
-      const response = await apiService.post('/auth/request-code', { email });
+      const response = await apiService.post('/auth/request-code', { email, role });
       if (response.success && response.data) {
         const debugCode = __DEV__ ? (response.data as any)?.debugCode : undefined;
         if (__DEV__ && debugCode) {
           showInfo(`Dev code: ${debugCode}`, 7000);
         }
-        navigation.navigate('VerificationCode', { email, debugCode });
+        navigation.navigate('VerificationCode', { email, role, debugCode });
       }
     } catch (err: any) {
       if (err.code === 'USER_NOT_FOUND') {
-        navigation.navigate('Registration', { email });
+        goToRegistration();
       } else {
         setError(err.message || 'Не удалось отправить код');
       }
@@ -120,8 +131,18 @@ export default function EmailInputScreen() {
           Добро пожаловать
         </Text>
         <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.custom.textSecondary }]}>
-          Войдите по email и паролю
+          Выберите роль и войдите по email и паролю
         </Text>
+
+        <SegmentedButtons
+          value={role}
+          onValueChange={(v) => setRole(v as 'client' | 'executor')}
+          buttons={[
+            { value: 'client', label: 'Заказчик', icon: 'account' },
+            { value: 'executor', label: 'Исполнитель', icon: 'truck' },
+          ]}
+          style={styles.roleTabs}
+        />
 
         <CustomInput
           label="Email"
@@ -174,7 +195,7 @@ export default function EmailInputScreen() {
         <CustomButton
           mode="text"
           variant="secondary"
-          onPress={() => navigation.navigate('Registration', { email })}
+          onPress={goToRegistration}
           disabled={busy}
           fullWidth
           style={styles.registerButton}
@@ -201,8 +222,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   subtitle: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
     textAlign: 'center',
+  },
+  roleTabs: {
+    marginBottom: spacing.lg,
   },
   input: {
     marginBottom: spacing.md,
