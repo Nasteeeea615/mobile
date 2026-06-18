@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Keyboard } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { Text, useTheme, SegmentedButtons, Snackbar } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import VehicleSelector from '../components/VehicleSelector';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -24,12 +24,13 @@ export default function ClientHomeScreen() {
   const [dateInput, setDateInput] = useState('');
   const [timeInput, setTimeInput] = useState('');
   const [comment, setComment] = useState('');
+  const [paymentType, setPaymentType] = useState<'cash' | 'sbp'>('cash');
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [isUrgent, setIsUrgent] = useState(false);
+  const [showSuccessSnackbar, setShowSuccessSnackbar] = useState(false);
 
   // Autofill address from user profile on component mount
   useEffect(() => {
@@ -54,9 +55,9 @@ export default function ClientHomeScreen() {
   const handleDateInput = (text: string) => {
     // Удаляем все нецифровые символы
     const numbers = text.replace(/[^\d]/g, '');
-    
+
     let formatted = '';
-    
+
     // Форматируем по мере ввода
     if (numbers.length > 0) {
       formatted = numbers.substring(0, 2); // ДД
@@ -67,7 +68,7 @@ export default function ClientHomeScreen() {
     if (numbers.length >= 5) {
       formatted += '.' + numbers.substring(4, 8); // .ГГГГ
     }
-    
+
     setDateInput(formatted);
   };
 
@@ -75,9 +76,9 @@ export default function ClientHomeScreen() {
   const handleTimeInput = (text: string) => {
     // Удаляем все нецифровые символы
     const numbers = text.replace(/[^\d]/g, '');
-    
+
     let formatted = '';
-    
+
     // Форматируем по мере ввода
     if (numbers.length > 0) {
       formatted = numbers.substring(0, 2); // ЧЧ
@@ -85,63 +86,57 @@ export default function ClientHomeScreen() {
     if (numbers.length >= 3) {
       formatted += ':' + numbers.substring(2, 4); // :ММ
     }
-    
+
     setTimeInput(formatted);
   };
 
   // Валидация даты
   const isValidDate = (dateStr: string): boolean => {
     if (dateStr.length !== 10) return false;
-    
+
     const parts = dateStr.split('.');
     if (parts.length !== 3) return false;
-    
+
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10);
     const year = parseInt(parts[2], 10);
-    
+
     if (day < 1 || day > 31) return false;
     if (month < 1 || month > 12) return false;
     if (year < 2024 || year > 2100) return false;
-    
+
+    // Must be a real calendar date and not in the past.
+    const date = new Date(year, month - 1, day);
+    if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
+      return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date.getTime() < today.getTime()) return false;
+
     return true;
   };
 
   // Валидация времени
   const isValidTime = (timeStr: string): boolean => {
     if (timeStr.length !== 5) return false;
-    
+
     const parts = timeStr.split(':');
     if (parts.length !== 2) return false;
-    
+
     const hours = parseInt(parts[0], 10);
     const minutes = parseInt(parts[1], 10);
-    
+
     if (hours < 0 || hours > 23) return false;
     if (minutes < 0 || minutes > 59) return false;
-    
-    return true;
-  };
 
-  const handleUrgentOrder = () => {
-    setIsUrgent(true);
-    // Устанавливаем текущую дату и время
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    
-    setDateInput(`${day}.${month}.${year}`);
-    setTimeInput(`${hours}:${minutes}`);
-    handleOrderPress();
+    return true;
   };
 
   const handleOrderPress = () => {
     // Dismiss keyboard before validation
     Keyboard.dismiss();
-    
+
     setError('');
 
     // Validation
@@ -185,7 +180,7 @@ export default function ClientHomeScreen() {
         scheduled_date: formattedDate,
         scheduled_time: timeInput,
         comment: comment || undefined,
-        is_urgent: isUrgent,
+        payment_type: paymentType,
       });
 
       if (response.success && response.data) {
@@ -200,11 +195,11 @@ export default function ClientHomeScreen() {
         setDateInput('');
         setTimeInput('');
         setComment('');
-        setIsUrgent(false);
+        setPaymentType('cash');
         setShowConfirmModal(false);
 
         // Show success message or navigate
-        alert('Заказ успешно создан!');
+        setShowSuccessSnackbar(true);
       }
     } catch (err: any) {
       setError(err.message || 'Ошибка создания заказа');
@@ -279,6 +274,63 @@ export default function ClientHomeScreen() {
           />
         </View>
 
+        <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.custom.text }]}>
+          Способ оплаты
+        </Text>
+
+        <SegmentedButtons
+          value={paymentType}
+          onValueChange={value => setPaymentType(value as 'cash' | 'sbp')}
+          buttons={[
+            {
+              value: 'cash',
+              label: 'Наличные',
+              icon: 'cash',
+              style: [
+                styles.paymentButtonOption,
+                {
+                  backgroundColor:
+                    paymentType === 'cash' ? theme.custom.primary : theme.custom.surface,
+                  borderColor:
+                    paymentType === 'cash'
+                      ? theme.custom.primary
+                      : theme.dark
+                        ? theme.custom.border
+                        : 'rgba(0, 0, 0, 0.32)',
+                },
+              ],
+              labelStyle: [
+                styles.paymentButtonLabel,
+                { color: paymentType === 'cash' ? '#FFFFFF' : theme.custom.text },
+              ],
+            },
+            {
+              value: 'sbp',
+              label: 'СБП',
+              icon: 'bank-transfer',
+              style: [
+                styles.paymentButtonOption,
+                {
+                  backgroundColor:
+                    paymentType === 'sbp' ? theme.custom.primary : theme.custom.surface,
+                  borderColor:
+                    paymentType === 'sbp'
+                      ? theme.custom.primary
+                      : theme.dark
+                        ? theme.custom.border
+                        : 'rgba(0, 0, 0, 0.32)',
+                },
+              ],
+              labelStyle: [
+                styles.paymentButtonLabel,
+                { color: paymentType === 'sbp' ? '#FFFFFF' : theme.custom.text },
+              ],
+            },
+          ]}
+          style={styles.paymentSelector}
+          density="small"
+        />
+
         <CustomInput
           label="Комментарий (необязательно)"
           value={comment}
@@ -289,9 +341,7 @@ export default function ClientHomeScreen() {
           style={styles.input}
         />
 
-        {error ? (
-          <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>
-        ) : null}
+        {error ? <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text> : null}
 
         <CustomButton
           mode="contained"
@@ -303,29 +353,30 @@ export default function ClientHomeScreen() {
         >
           {`Заказать за ${calculatePrice()} ₽`}
         </CustomButton>
-
-        <CustomButton
-          mode="outlined"
-          variant="secondary"
-          onPress={handleUrgentOrder}
-          disabled={loading || !vehicleCapacity}
-          fullWidth
-          style={styles.urgentButton}
-        >
-          Срочный заказ
-        </CustomButton>
-
       </KeyboardDismissWrapper>
-      
+
       <ConfirmationModal
         visible={showConfirmModal}
         title="Подтверждение заказа"
-        message={`Заказать машину ${vehicleCapacity} м³ на ${dateInput} в ${timeInput}?\n\nСтоимость: ${calculatePrice()} ₽`}
+        message={`Заказать машину ${vehicleCapacity} м³ на ${dateInput} в ${timeInput}?\n\nСтоимость: ${calculatePrice()} ₽\nОплата: ${paymentType === 'cash' ? 'Наличные' : 'СБП'}`}
         onConfirm={handleConfirmOrder}
         onCancel={() => setShowConfirmModal(false)}
         confirmText="Заказать"
         loading={loading}
       />
+
+      <Snackbar
+        visible={showSuccessSnackbar}
+        onDismiss={() => setShowSuccessSnackbar(false)}
+        duration={2500}
+        action={{
+          label: 'ОК',
+          onPress: () => setShowSuccessSnackbar(false),
+        }}
+        style={{ backgroundColor: theme.custom.success }}
+      >
+        Заказ успешно создан!
+      </Snackbar>
     </View>
   );
 }
@@ -365,7 +416,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.md,
   },
-  urgentButton: {
-    marginBottom: spacing.lg,
+  paymentSelector: {
+    marginBottom: spacing.md,
+  },
+  paymentButtonOption: {
+    borderWidth: 1,
+  },
+  paymentButtonLabel: {
+    fontWeight: '600',
   },
 });

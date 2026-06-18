@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, useTheme, SegmentedButtons } from 'react-native-paper';
+import { Text, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import apiService from '../services/api';
@@ -134,15 +134,28 @@ export default function EmailInputScreen() {
           Выберите роль и войдите по email и паролю
         </Text>
 
-        <SegmentedButtons
-          value={role}
-          onValueChange={(v) => setRole(v as 'client' | 'executor')}
-          buttons={[
-            { value: 'client', label: 'Заказчик', icon: 'account' },
-            { value: 'executor', label: 'Исполнитель', icon: 'truck' },
-          ]}
-          style={styles.roleTabs}
-        />
+        <View style={styles.roleRow}>
+          <CustomButton
+            mode={role === 'client' ? 'contained' : 'outlined'}
+            variant="primary"
+            onPress={() => setRole('client')}
+            disabled={busy}
+            icon="account"
+            style={styles.roleBtn}
+          >
+            Заказчик
+          </CustomButton>
+          <CustomButton
+            mode={role === 'executor' ? 'contained' : 'outlined'}
+            variant="primary"
+            onPress={() => setRole('executor')}
+            disabled={busy}
+            icon="truck"
+            style={styles.roleBtn}
+          >
+            Исполнитель
+          </CustomButton>
+        </View>
 
         <CustomInput
           label="Email"
@@ -225,8 +238,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     textAlign: 'center',
   },
-  roleTabs: {
+  roleRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  roleBtn: {
+    flex: 1,
   },
   input: {
     marginBottom: spacing.md,

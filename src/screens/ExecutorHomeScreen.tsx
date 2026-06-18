@@ -194,7 +194,7 @@ export default function ExecutorHomeScreen() {
         <CustomButton
           mode="contained"
           variant="primary"
-          onPress={handleStartWork}
+          onPress={confirmStartWork}
           loading={loading}
           disabled={loading}
           style={styles.startButton}
