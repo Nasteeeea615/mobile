@@ -140,8 +140,8 @@ export default function EmailInputScreen() {
             variant="primary"
             onPress={() => setRole('client')}
             disabled={busy}
-            icon="account"
             style={styles.roleBtn}
+            labelStyle={styles.roleLabel}
           >
             Заказчик
           </CustomButton>
@@ -150,8 +150,8 @@ export default function EmailInputScreen() {
             variant="primary"
             onPress={() => setRole('executor')}
             disabled={busy}
-            icon="truck"
             style={styles.roleBtn}
+            labelStyle={styles.roleLabel}
           >
             Исполнитель
           </CustomButton>
@@ -212,6 +212,7 @@ export default function EmailInputScreen() {
           disabled={busy}
           fullWidth
           style={styles.registerButton}
+          labelStyle={styles.registerLabel}
         >
           Нет аккаунта? Зарегистрироваться
         </CustomButton>
@@ -245,6 +246,12 @@ const styles = StyleSheet.create({
   },
   roleBtn: {
     flex: 1,
+  },
+  roleLabel: {
+    fontSize: 14,
+  },
+  registerLabel: {
+    fontSize: 13,
   },
   input: {
     marginBottom: spacing.md,
