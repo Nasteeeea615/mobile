@@ -329,7 +329,7 @@ export default function ExecutorHomeScreen() {
                 mode="contained"
                 variant="primary"
                 onPress={() => handleAcceptOrder(item)}
-                disabled={executorBalance <= 0 || loading}
+                disabled={loading}
                 fullWidth
                 style={styles.acceptButton}
               >
