@@ -2,44 +2,75 @@ import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import apiService from '../services/api';
+import { setUser, setToken } from '../store/slices/authSlice';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
 import { AppTheme, spacing } from '../theme';
+import { useSnackbarHelpers } from '../components/SnackbarProvider';
 
 export default function EmailInputScreen() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
   const [error, setError] = useState('');
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
   const theme = useTheme<AppTheme>();
+  const { showInfo } = useSnackbarHelpers();
 
-  const validateEmail = (email: string) => {
+  const validateEmail = (value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(value);
   };
 
-  const handleLogin = async () => {
-    setError('');
+  // Route the user to the right place once we have a token + user object.
+  const enterApp = async (data: any) => {
+    dispatch(setToken(data.token));
+    dispatch(setUser(data.user));
+    await apiService.setToken(data.token);
 
-    // Basic validation
+    const executorProfile = data.user?.executorProfile || data.user?.executor_profile;
+    const isExecutorWaitingForApproval =
+      data.user?.role === 'executor' && executorProfile && !executorProfile.is_verified;
+
+    if (isExecutorWaitingForApproval) {
+      navigation.reset({ index: 0, routes: [{ name: 'PendingExecutorApproval' }] });
+    } else if (data.user?.role === 'executor') {
+      navigation.reset({ index: 0, routes: [{ name: 'ExecutorTabs' }] });
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: 'ClientTabs' }] });
+    }
+  };
+
+  // Primary: email + password.
+  const handlePasswordLogin = async () => {
+    setError('');
     if (!email || !validateEmail(email)) {
       setError('Введите корректный email');
       return;
     }
+    if (!password) {
+      setError('Введите пароль');
+      return;
+    }
 
     setLoading(true);
-
     try {
-      const response = await apiService.post('/auth/request-code', { email });
-
+      const response = await apiService.post('/auth/login-password', {
+        email: email.trim().toLowerCase(),
+        password,
+      });
       if (response.success && response.data) {
-        navigation.navigate('VerificationCode', { email });
+        await enterApp(response.data);
       }
     } catch (err: any) {
       if (err.code === 'USER_NOT_FOUND') {
-        // User doesn't exist - navigate to registration
         navigation.navigate('Registration', { email });
+      } else if (err.code === 'INVALID_CREDENTIALS') {
+        setError('Неверный email или пароль. Можно войти по коду из почты.');
       } else {
         setError(err.message || 'Ошибка входа');
       }
@@ -47,6 +78,37 @@ export default function EmailInputScreen() {
       setLoading(false);
     }
   };
+
+  // Fallback: log in with a one-time code sent to email.
+  const handleCodeLogin = async () => {
+    setError('');
+    if (!email || !validateEmail(email)) {
+      setError('Введите корректный email');
+      return;
+    }
+
+    setCodeLoading(true);
+    try {
+      const response = await apiService.post('/auth/request-code', { email });
+      if (response.success && response.data) {
+        const debugCode = __DEV__ ? (response.data as any)?.debugCode : undefined;
+        if (__DEV__ && debugCode) {
+          showInfo(`Dev code: ${debugCode}`, 7000);
+        }
+        navigation.navigate('VerificationCode', { email, debugCode });
+      }
+    } catch (err: any) {
+      if (err.code === 'USER_NOT_FOUND') {
+        navigation.navigate('Registration', { email });
+      } else {
+        setError(err.message || 'Не удалось отправить код');
+      }
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
+  const busy = loading || codeLoading;
 
   return (
     <KeyboardAvoidingView
@@ -58,7 +120,7 @@ export default function EmailInputScreen() {
           Добро пожаловать
         </Text>
         <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.custom.textSecondary }]}>
-            Войдите по коду подтверждения из email
+          Войдите по email и паролю
         </Text>
 
         <CustomInput
@@ -69,29 +131,51 @@ export default function EmailInputScreen() {
           autoCapitalize="none"
           placeholder="example@mail.com"
           error={!!error && error.includes('email')}
-          disabled={loading}
+          disabled={busy}
           style={styles.input}
         />
 
-        {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
+        <CustomInput
+          label="Пароль"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          disabled={busy}
+          style={styles.input}
+        />
+
+        {error ? <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text> : null}
 
         <CustomButton
           mode="contained"
           variant="primary"
-          onPress={handleLogin}
+          onPress={handlePasswordLogin}
           loading={loading}
-          disabled={loading}
+          disabled={busy}
           fullWidth
           style={styles.button}
         >
-          Получить код
+          Войти
+        </CustomButton>
+
+        <CustomButton
+          mode="text"
+          variant="secondary"
+          onPress={handleCodeLogin}
+          loading={codeLoading}
+          disabled={busy}
+          fullWidth
+          style={styles.registerButton}
+        >
+          Войти по коду из email
         </CustomButton>
 
         <CustomButton
           mode="text"
           variant="secondary"
           onPress={() => navigation.navigate('Registration', { email })}
-          disabled={loading}
+          disabled={busy}
           fullWidth
           style={styles.registerButton}
         >

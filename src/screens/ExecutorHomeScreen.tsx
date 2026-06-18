@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, AppState, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Text, ActivityIndicator, FAB, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomButton from '../components/CustomButton';
+import { useSnackbarHelpers } from '../components/SnackbarProvider';
 import apiService from '../services/api';
 import { Order } from '../types';
 import { AppTheme, spacing, containerShadows } from '../theme';
-import { InactivityTimer } from '../utils/inactivityTimer';
 
 export default function ExecutorHomeScreen() {
   const [isWorking, setIsWorking] = useState(false);
@@ -21,81 +21,29 @@ export default function ExecutorHomeScreen() {
   const [showStartWorkModal, setShowStartWorkModal] = useState(false);
   const [showStopWorkModal, setShowStopWorkModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [executorBalance, setExecutorBalance] = useState(0);
 
   const navigation = useNavigation<any>();
   const theme = useTheme<AppTheme>();
-  const inactivityTimerRef = useRef<InactivityTimer | null>(null);
-  const appState = useRef(AppState.currentState);
+  const { showError, showWarning, showSuccess } = useSnackbarHelpers();
 
   useEffect(() => {
     fetchActiveOrder();
-
-    // Setup app state listener for inactivity tracking
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        // App has come to the foreground - reset timer
-        if (isWorking && inactivityTimerRef.current) {
-          inactivityTimerRef.current.reset();
-        }
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-      if (inactivityTimerRef.current) {
-        inactivityTimerRef.current.stop();
-      }
-    };
+    fetchBalance();
   }, []);
 
   useEffect(() => {
     if (isWorking) {
-      // Start inactivity timer when work begins
-      if (!inactivityTimerRef.current) {
-        inactivityTimerRef.current = new InactivityTimer(handleInactivityTimeout, 30);
-        inactivityTimerRef.current.start();
-      }
-
       fetchAvailableOrders();
       const interval = setInterval(() => {
         fetchAvailableOrders();
-        // Reset timer on each fetch (activity indicator)
-        if (inactivityTimerRef.current) {
-          inactivityTimerRef.current.reset();
-        }
       }, 10000); // Refresh every 10 seconds
-      
+
       return () => {
         clearInterval(interval);
       };
-    } else {
-      // Stop timer when work ends
-      if (inactivityTimerRef.current) {
-        inactivityTimerRef.current.stop();
-        inactivityTimerRef.current = null;
-      }
     }
   }, [isWorking]);
-
-  const handleInactivityTimeout = async () => {
-    Alert.alert(
-      'Работа завершена',
-      'Вы были неактивны более 30 минут. Работа автоматически завершена.',
-      [{ text: 'OK' }]
-    );
-    
-    try {
-      await apiService.post('/executor/stop-work');
-      setIsWorking(false);
-      setAvailableOrders([]);
-    } catch (error) {
-      console.error('Error auto-stopping work:', error);
-    }
-  };
 
   const fetchActiveOrder = async () => {
     try {
@@ -108,7 +56,7 @@ export default function ExecutorHomeScreen() {
         }
       }
     } catch (error) {
-      console.error('Error fetching active order:', error);
+      console.error('Ошибка загрузки активного заказа:', error);
     }
   };
 
@@ -122,10 +70,22 @@ export default function ExecutorHomeScreen() {
         setAvailableOrders(data.orders || []);
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error('Ошибка загрузки заказов:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const fetchBalance = async () => {
+    try {
+      const response = await apiService.get('/executor/balance');
+      if (response.success && response.data) {
+        const data = response.data as any;
+        setExecutorBalance(Number(data.balance || 0));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки баланса исполнителя:', error);
     }
   };
 
@@ -139,9 +99,11 @@ export default function ExecutorHomeScreen() {
       await apiService.post('/executor/start-work');
       setIsWorking(true);
       setShowStartWorkModal(false);
+      showSuccess('Вы на линии — будут приходить новые заказы');
+      fetchBalance();
       fetchAvailableOrders();
     } catch (error: any) {
-      alert(error.message || 'Ошибка начала работы');
+      showError(error.message || 'Ошибка начала работы');
     } finally {
       setLoading(false);
     }
@@ -158,18 +120,15 @@ export default function ExecutorHomeScreen() {
       setIsWorking(false);
       setAvailableOrders([]);
       setShowStopWorkModal(false);
+      showSuccess('Вы завершили работу');
     } catch (error: any) {
-      alert(error.message || 'Ошибка завершения работы');
+      showError(error.message || 'Ошибка завершения работы');
     } finally {
       setLoading(false);
     }
   };
 
   const handleAcceptOrder = (order: Order) => {
-    // Reset inactivity timer on user action
-    if (inactivityTimerRef.current) {
-      inactivityTimerRef.current.reset();
-    }
     setSelectedOrder(order);
     setShowAcceptModal(true);
   };
@@ -185,23 +144,15 @@ export default function ExecutorHomeScreen() {
         setActiveOrder(data.order);
         setAvailableOrders([]);
         setShowAcceptModal(false);
-        // Reset timer after accepting order
-        if (inactivityTimerRef.current) {
-          inactivityTimerRef.current.reset();
-        }
       }
     } catch (error: any) {
-      alert(error.message || 'Ошибка принятия заказа');
+      showError(error.message || 'Ошибка принятия заказа');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCompleteOrder = () => {
-    // Reset inactivity timer on user action
-    if (inactivityTimerRef.current) {
-      inactivityTimerRef.current.reset();
-    }
     setShowCompleteModal(true);
   };
 
@@ -213,23 +164,16 @@ export default function ExecutorHomeScreen() {
       await apiService.post(`/executor/orders/${activeOrder.id}/complete`);
       setActiveOrder(null);
       setShowCompleteModal(false);
+      fetchBalance();
       fetchAvailableOrders();
-      // Reset timer after completing order
-      if (inactivityTimerRef.current) {
-        inactivityTimerRef.current.reset();
-      }
     } catch (error: any) {
-      alert(error.message || 'Ошибка завершения заказа');
+      showError(error.message || 'Ошибка завершения заказа');
     } finally {
       setLoading(false);
     }
   };
 
   const handleRefresh = () => {
-    // Reset inactivity timer on user action
-    if (inactivityTimerRef.current) {
-      inactivityTimerRef.current.reset();
-    }
     setRefreshing(true);
     if (isWorking) {
       fetchAvailableOrders(true);
@@ -268,19 +212,29 @@ export default function ExecutorHomeScreen() {
           Активный заказ
         </Text>
         <OrderCard order={activeOrder} />
-        
-        <View style={[styles.activeOrderDetails, { backgroundColor: theme.custom.surface }, containerShadows.card]}>
+
+        <View
+          style={[
+            styles.activeOrderDetails,
+            { backgroundColor: theme.custom.surface },
+            containerShadows.card,
+          ]}
+        >
           <Text variant="titleMedium" style={{ color: theme.custom.text }}>
             Детали заказа:
           </Text>
           <Text variant="bodyLarge" style={[styles.detailText, { color: theme.custom.text }]}>
-            📍 {activeOrder.city}, {activeOrder.street}, {activeOrder.house_number}
+            📍 {activeOrder.address?.city || '—'}, {activeOrder.address?.street || '—'},{' '}
+            {activeOrder.address?.houseNumber || '—'}
           </Text>
           <Text variant="bodyLarge" style={[styles.detailText, { color: theme.custom.text }]}>
             💰 {activeOrder.price} ₽
           </Text>
           {activeOrder.comment && (
-            <Text variant="bodyMedium" style={[styles.comment, { color: theme.custom.textSecondary }]}>
+            <Text
+              variant="bodyMedium"
+              style={[styles.comment, { color: theme.custom.textSecondary }]}
+            >
               Комментарий: {activeOrder.comment}
             </Text>
           )}
@@ -322,6 +276,22 @@ export default function ExecutorHomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.custom.background }]}>
+      <View
+        style={[
+          styles.balanceBadge,
+          { backgroundColor: theme.custom.surface, borderColor: theme.custom.border },
+        ]}
+      >
+        <Text variant="bodyMedium" style={{ color: theme.custom.text }}>
+          Баланс: {executorBalance.toFixed(2)} ₽
+        </Text>
+        {executorBalance <= 0 ? (
+          <Text variant="bodySmall" style={{ color: theme.custom.warning }}>
+            Пополните баланс безналичными заказами или выведите средства
+          </Text>
+        ) : null}
+      </View>
+
       <CustomButton
         mode="outlined"
         variant="secondary"
@@ -342,7 +312,10 @@ export default function ExecutorHomeScreen() {
           <Text variant="titleMedium" style={{ color: theme.custom.text }}>
             Нет доступных заказов
           </Text>
-          <Text variant="bodyMedium" style={[styles.emptySubtext, { color: theme.custom.textSecondary }]}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.emptySubtext, { color: theme.custom.textSecondary }]}
+          >
             Ожидайте новых заказов
           </Text>
         </View>
@@ -356,6 +329,7 @@ export default function ExecutorHomeScreen() {
                 mode="contained"
                 variant="primary"
                 onPress={() => handleAcceptOrder(item)}
+                disabled={executorBalance <= 0 || loading}
                 fullWidth
                 style={styles.acceptButton}
               >
@@ -383,12 +357,12 @@ export default function ExecutorHomeScreen() {
           try {
             navigation.navigate('ExecutorHistory');
           } catch (error) {
-            console.error('Failed to navigate to ExecutorHistory:', error);
+            console.error('Ошибка перехода в историю заказов:', error);
             // Fallback: try to navigate to the tab navigator root
             try {
               navigation.navigate('ExecutorTabs', { screen: 'ExecutorHistory' });
             } catch (fallbackError) {
-              console.error('Fallback navigation also failed:', fallbackError);
+              console.error('Резервный переход также не сработал:', fallbackError);
             }
           }
         }}
@@ -397,7 +371,7 @@ export default function ExecutorHomeScreen() {
       <ConfirmationModal
         visible={showAcceptModal}
         title="Принять заказ"
-        message={`Принять заказ в городе ${selectedOrder?.city}?`}
+        message={`Принять заказ в городе ${selectedOrder?.address?.city || 'неизвестно'}?`}
         onConfirm={confirmAcceptOrder}
         onCancel={() => setShowAcceptModal(false)}
         loading={loading}
@@ -439,6 +413,13 @@ const styles = StyleSheet.create({
   },
   stopWorkButton: {
     marginBottom: spacing.lg,
+  },
+  balanceBadge: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
   },
   title: {
     marginBottom: spacing.md,
